@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS — Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="nav-bar">
+        <span class="brand">SMS — Admin</span>
+        <div class="nav-links">
+            <a href="#" class="active" onclick="showTab('dashboard', event)">Dashboard</a>
+            <a href="#" onclick="showTab('students', event)">Students</a>
+            <a href="#" onclick="showTab('teachers', event)">Teachers</a>
+            <a href="#" onclick="showTab('courses', event)">Courses</a>
+            <a href="#" onclick="showTab('enrollments', event)">Enrollments</a>
+            <a href="#" onclick="showTab('assignments', event)">Assignments</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+    </nav>
+    <div class="container">
+        <div id="alert" class="alert"></div>
+
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="page-header"><h1>Dashboard</h1></div>
+            <div class="stats-grid">
+                <div class="stat-card"><div id="stat-students" class="stat-value">—</div><div class="stat-label">Students</div></div>
+                <div class="stat-card"><div id="stat-teachers" class="stat-value">—</div><div class="stat-label">Teachers</div></div>
+                <div class="stat-card"><div id="stat-courses" class="stat-value">—</div><div class="stat-label">Courses</div></div>
+            </div>
+        </div>
+
+        <!-- Students Tab -->
+        <div id="tab-students" class="tab-content">
+            <div class="page-header">
+                <h1>Students</h1>
+                <button class="btn btn-primary" onclick="openModal('studentModal')">+ Add Student</button>
+            </div>
+            <div class="card table-wrapper">
+                <table><thead><tr><th>Roll Number</th><th>Name</th><th>Branch</th><th>DOB</th><th>Email</th><th>Phone</th><th>Actions</th></tr></thead>
+                <tbody id="students-table"></tbody></table>
+            </div>
+        </div>
+
+        <!-- Teachers Tab -->
+        <div id="tab-teachers" class="tab-content">
+            <div class="page-header">
+                <h1>Teachers</h1>
+                <button class="btn btn-primary" onclick="openModal('teacherModal')">+ Add Teacher</button>
+            </div>
+            <div class="card table-wrapper">
+                <table><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>DOB</th><th>Email</th><th>Department</th><th>Actions</th></tr></thead>
+                <tbody id="teachers-table"></tbody></table>
+            </div>
+        </div>
+
+        <!-- Courses Tab -->
+        <div id="tab-courses" class="tab-content">
+            <div class="page-header">
+                <h1>Courses</h1>
+                <button class="btn btn-primary" onclick="openModal('courseModal')">+ Add Course</button>
+            </div>
+            <div class="card table-wrapper">
+                <table><thead><tr><th>ID</th><th>Code</th><th>Name</th><th>Credits</th><th>Department</th><th>Actions</th></tr></thead>
+                <tbody id="courses-table"></tbody></table>
+            </div>
+        </div>
+
+        <!-- Enrollments Tab -->
+        <div id="tab-enrollments" class="tab-content">
+            <div class="page-header">
+                <h1>Enrollments</h1>
+                <button class="btn btn-primary" onclick="openModal('enrollModal')">+ Enroll Student</button>
+            </div>
+            <div class="card table-wrapper">
+                <table><thead><tr><th>Student</th><th>Course</th><th>Enrolled Date</th><th>Actions</th></tr></thead>
+                <tbody id="enrollments-table"></tbody></table>
+            </div>
+        </div>
+
+        <!-- Teacher Assignments Tab -->
+        <div id="tab-assignments" class="tab-content">
+            <div class="page-header">
+                <h1>Teacher-Course Assignments</h1>
+                <button class="btn btn-primary" onclick="openModal('assignModal')">+ Assign Teacher</button>
+            </div>
+            <div class="card table-wrapper">
+                <table><thead><tr><th>Teacher</th><th>Course</th><th>Actions</th></tr></thead>
+                <tbody id="assignments-table"></tbody></table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Modal (Create) -->
+    <div id="studentModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Add Student</h2>
+            <form id="studentForm">
+                <div class="form-group"><label>First Name</label><input id="s_first" required></div>
+                <div class="form-group"><label>Last Name</label><input id="s_last" required></div>
+                <div class="form-group"><label>Date of Birth</label><input type="date" id="s_dob" required></div>
+                <div class="form-group"><label>Branch Code</label>
+                    <select id="s_branch" required>
+                        <option value="733">733 — CSE</option>
+                        <option value="734">734 — ECE</option>
+                        <option value="735">735 — EEE</option>
+                        <option value="736">736 — MECH</option>
+                        <option value="737">737 — CIVIL</option>
+                        <option value="738">738 — IT</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Email</label><input type="email" id="s_email"></div>
+                <div class="form-group"><label>Phone (10-15 digits)</label><input id="s_phone" pattern="\d{10,15}"></div>
+                <div class="form-group"><label>Address</label><input id="s_address"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('studentModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Student Edit Modal (#17) -->
+    <div id="editStudentModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Edit Student</h2>
+            <form id="editStudentForm">
+                <input type="hidden" id="es_id">
+                <div class="form-group"><label>First Name</label><input id="es_first" required></div>
+                <div class="form-group"><label>Last Name</label><input id="es_last" required></div>
+                <div class="form-group"><label>Email</label><input type="email" id="es_email"></div>
+                <div class="form-group"><label>Phone</label><input id="es_phone" pattern="\d{10,15}"></div>
+                <div class="form-group"><label>Address</label><input id="es_address"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('editStudentModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Teacher Modal (Create) -->
+    <div id="teacherModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Add Teacher</h2>
+            <form id="teacherForm">
+                <div class="form-group"><label>First Name</label><input id="t_first" required></div>
+                <div class="form-group"><label>Last Name</label><input id="t_last" required></div>
+                <div class="form-group"><label>Date of Birth</label><input type="date" id="t_dob" required></div>
+                <div class="form-group"><label>Email</label><input type="email" id="t_email"></div>
+                <div class="form-group"><label>Phone</label><input id="t_phone" pattern="\d{10,15}"></div>
+                <div class="form-group"><label>Department</label><input id="t_dept"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('teacherModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Teacher Edit Modal (#17) -->
+    <div id="editTeacherModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Edit Teacher</h2>
+            <form id="editTeacherForm">
+                <input type="hidden" id="et_id">
+                <div class="form-group"><label>First Name</label><input id="et_first" required></div>
+                <div class="form-group"><label>Last Name</label><input id="et_last" required></div>
+                <div class="form-group"><label>Email</label><input type="email" id="et_email"></div>
+                <div class="form-group"><label>Phone</label><input id="et_phone" pattern="\d{10,15}"></div>
+                <div class="form-group"><label>Department</label><input id="et_dept"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('editTeacherModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Course Modal (Create) -->
+    <div id="courseModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Add Course</h2>
+            <form id="courseForm">
+                <div class="form-group"><label>Course Code</label><input id="c_code" required pattern="[A-Za-z0-9]+"></div>
+                <div class="form-group"><label>Course Name</label><input id="c_name" required></div>
+                <div class="form-group"><label>Credits</label><input type="number" id="c_credits" value="3" min="1" max="12"></div>
+                <div class="form-group"><label>Department</label><input id="c_dept"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('courseModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Course Edit Modal (#17) -->
+    <div id="editCourseModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Edit Course</h2>
+            <form id="editCourseForm">
+                <input type="hidden" id="ec_id">
+                <div class="form-group"><label>Course Name</label><input id="ec_name" required></div>
+                <div class="form-group"><label>Credits</label><input type="number" id="ec_credits" min="1" max="12"></div>
+                <div class="form-group"><label>Department</label><input id="ec_dept"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('editCourseModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Enroll Modal -->
+    <div id="enrollModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Enroll Student in Course</h2>
+            <form id="enrollForm">
+                <div class="form-group"><label>Student</label>
+                    <select id="e_student" required><option value="">Select student...</option></select>
+                </div>
+                <div class="form-group"><label>Course</label>
+                    <select id="e_course" required><option value="">Select course...</option></select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('enrollModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Enroll</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Assign Teacher Modal -->
+    <div id="assignModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Assign Teacher to Course</h2>
+            <form id="assignForm">
+                <div class="form-group"><label>Teacher</label>
+                    <select id="a_teacher" required><option value="">Select teacher...</option></select>
+                </div>
+                <div class="form-group"><label>Course</label>
+                    <select id="a_course" required><option value="">Select course...</option></select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('assignModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        requireAuth('ADMIN');
+
+        // Tab switching — Fix #12 (explicit event param)
+        function showTab(name, e) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            if (e && e.target) e.target.classList.add('active');
+            if (name === 'dashboard') loadStats();
+            if (name === 'students') loadStudents();
+            if (name === 'teachers') loadTeachers();
+            if (name === 'courses') loadCourses();
+            if (name === 'enrollments') loadEnrollments();
+            if (name === 'assignments') loadAssignments();
+        }
+
+        // Load data — all use esc() for XSS prevention (#1)
+        async function loadStats() {
+            const res = await api('/admin/stats');
+            if (!res) return;
+            const d = await res.json();
+            document.getElementById('stat-students').textContent = d.total_students;
+            document.getElementById('stat-teachers').textContent = d.total_teachers;
+            document.getElementById('stat-courses').textContent = d.total_courses;
+        }
+
+        async function loadStudents() {
+            const res = await api('/admin/students');
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('students-table').innerHTML = data.map(s => `
+                <tr>
+                    <td><strong>${esc(s.roll_number || s.username)}</strong></td>
+                    <td>${esc(s.first_name)} ${esc(s.last_name)}</td>
+                    <td><span class="badge badge-info">${esc(s.branch_code) || '—'}</span></td>
+                    <td>${esc(s.dob)}</td><td>${esc(s.email) || '—'}</td><td>${esc(s.phone) || '—'}</td>
+                    <td class="btn-group">
+                        <button class="btn btn-outline btn-sm" onclick='editStudent(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteStudent(${esc(s.id)})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadTeachers() {
+            const res = await api('/admin/teachers');
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('teachers-table').innerHTML = data.map(t => `
+                <tr>
+                    <td>${esc(t.id)}</td><td>${esc(t.username)}</td>
+                    <td>${esc(t.first_name)} ${esc(t.last_name)}</td>
+                    <td>${esc(t.dob)}</td><td>${esc(t.email) || '&mdash;'}</td><td>${esc(t.department) || '&mdash;'}</td>
+                    <td class="btn-group">
+                        <button class="btn btn-primary btn-sm" onclick="assignCourseForTeacher(${esc(t.id)}, '${esc(t.first_name)} ${esc(t.last_name)}')">+ Assign Course</button>
+                        <button class="btn btn-outline btn-sm" onclick='editTeacher(${JSON.stringify(t).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTeacher(${esc(t.id)})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadCourses() {
+            const res = await api('/admin/courses');
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('courses-table').innerHTML = data.map(c => `
+                <tr>
+                    <td>${esc(c.id)}</td><td>${esc(c.code)}</td><td>${esc(c.name)}</td>
+                    <td>${esc(c.credits)}</td><td>${esc(c.department) || '—'}</td>
+                    <td class="btn-group">
+                        <button class="btn btn-outline btn-sm" onclick='editCourse(${JSON.stringify(c).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCourse(${esc(c.id)})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadEnrollments() {
+            const res = await api('/admin/enrollments');
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('enrollments-table').innerHTML = data.map(e => `
+                <tr>
+                    <td>${esc(e.student_name)} (ID: ${esc(e.student_id)})</td>
+                    <td>${esc(e.course_name)} [${esc(e.course_code)}] (ID: ${esc(e.course_id)})</td>
+                    <td>${esc(e.enrolled_date) || '—'}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="unenroll(${esc(e.student_id)}, ${esc(e.course_id)})">Remove</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadAssignments() {
+            const res = await api('/admin/teacher-assignments');
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('assignments-table').innerHTML = data.map(a => `
+                <tr>
+                    <td>${esc(a.teacher_name)} (ID: ${esc(a.teacher_id)})</td>
+                    <td>${esc(a.course_name)} [${esc(a.course_code)}] (ID: ${esc(a.course_id)})</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="unassign(${esc(a.teacher_id)}, ${esc(a.course_id)})">Remove</button></td>
+                </tr>
+            `).join('');
+        }
+
+        // ── Create actions ───────────────────────────────────
+
+        document.getElementById('studentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await api('/admin/students', {
+                method: 'POST',
+                body: JSON.stringify({
+                    first_name: document.getElementById('s_first').value,
+                    last_name: document.getElementById('s_last').value,
+                    dob: document.getElementById('s_dob').value,
+                    branch_code: document.getElementById('s_branch').value,
+                    email: document.getElementById('s_email').value || null,
+                    phone: document.getElementById('s_phone').value || null,
+                    address: document.getElementById('s_address').value || null
+                })
+            });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) { showAlert('alert', data.message); closeModal('studentModal'); loadStudents(); loadStats(); e.target.reset(); }
+            else showAlert('alert', data.detail, 'error');
+        });
+
+        document.getElementById('teacherForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await api('/admin/teachers', {
+                method: 'POST',
+                body: JSON.stringify({
+                    first_name: document.getElementById('t_first').value,
+                    last_name: document.getElementById('t_last').value,
+                    dob: document.getElementById('t_dob').value,
+                    email: document.getElementById('t_email').value || null,
+                    phone: document.getElementById('t_phone').value || null,
+                    department: document.getElementById('t_dept').value || null
+                })
+            });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) { showAlert('alert', data.message); closeModal('teacherModal'); loadTeachers(); loadStats(); e.target.reset(); }
+            else showAlert('alert', data.detail, 'error');
+        });
+
+        document.getElementById('courseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await api('/admin/courses', {
+                method: 'POST',
+                body: JSON.stringify({
+                    code: document.getElementById('c_code').value,
+                    name: document.getElementById('c_name').value,
+                    credits: parseInt(document.getElementById('c_credits').value),
+                    department: document.getElementById('c_dept').value || null
+                })
+            });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) { showAlert('alert', data.message); closeModal('courseModal'); loadCourses(); loadStats(); e.target.reset(); }
+            else showAlert('alert', data.detail, 'error');
+        });
+
+        document.getElementById('enrollForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sid = document.getElementById('e_student').value;
+            const cid = document.getElementById('e_course').value;
+            const res = await api(`/admin/enroll?student_id=${sid}&course_id=${cid}`, { method: 'POST' });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) { showAlert('alert', data.message); closeModal('enrollModal'); loadEnrollments(); e.target.reset(); }
+            else showAlert('alert', data.detail, 'error');
+        });
+
+        document.getElementById('assignForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tid = document.getElementById('a_teacher').value;
+            const cid = document.getElementById('a_course').value;
+            const res = await api(`/admin/assign-teacher?teacher_id=${tid}&course_id=${cid}`, { method: 'POST' });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) { showAlert('alert', data.message); closeModal('assignModal'); loadAssignments(); e.target.reset(); }
+            else showAlert('alert', data.detail, 'error');
+        });
+
+        // ── Edit actions (#17 — new edit modals and endpoints) ──
+
+        function editStudent(s) {
+            document.getElementById('es_id').value = s.id;
+            document.getElementById('es_first').value = s.first_name;
+            document.getElementById('es_last').value = s.last_name;
+            document.getElementById('es_email').value = s.email || '';
+            document.getElementById('es_phone').value = s.phone || '';
+            document.getElementById('es_address').value = s.address || '';
+            openModal('editStudentModal');
+        }
+
+        document.getElementById('editStudentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('es_id').value;
+            const res = await api(`/admin/students/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    first_name: document.getElementById('es_first').value,
+                    last_name: document.getElementById('es_last').value,
+                    email: document.getElementById('es_email').value || null,
+                    phone: document.getElementById('es_phone').value || null,
+                    address: document.getElementById('es_address').value || null
+                })
+            });
+            if (!res) return;
+            if (res.ok) { showAlert('alert', 'Student updated'); closeModal('editStudentModal'); loadStudents(); }
+            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+        });
+
+        function editTeacher(t) {
+            document.getElementById('et_id').value = t.id;
+            document.getElementById('et_first').value = t.first_name;
+            document.getElementById('et_last').value = t.last_name;
+            document.getElementById('et_email').value = t.email || '';
+            document.getElementById('et_phone').value = t.phone || '';
+            document.getElementById('et_dept').value = t.department || '';
+            openModal('editTeacherModal');
+        }
+
+        document.getElementById('editTeacherForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('et_id').value;
+            const res = await api(`/admin/teachers/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    first_name: document.getElementById('et_first').value,
+                    last_name: document.getElementById('et_last').value,
+                    email: document.getElementById('et_email').value || null,
+                    phone: document.getElementById('et_phone').value || null,
+                    department: document.getElementById('et_dept').value || null
+                })
+            });
+            if (!res) return;
+            if (res.ok) { showAlert('alert', 'Teacher updated'); closeModal('editTeacherModal'); loadTeachers(); }
+            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+        });
+
+        function editCourse(c) {
+            document.getElementById('ec_id').value = c.id;
+            document.getElementById('ec_name').value = c.name;
+            document.getElementById('ec_credits').value = c.credits;
+            document.getElementById('ec_dept').value = c.department || '';
+            openModal('editCourseModal');
+        }
+
+        document.getElementById('editCourseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('ec_id').value;
+            const res = await api(`/admin/courses/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    name: document.getElementById('ec_name').value,
+                    credits: parseInt(document.getElementById('ec_credits').value),
+                    department: document.getElementById('ec_dept').value || null
+                })
+            });
+            if (!res) return;
+            if (res.ok) { showAlert('alert', 'Course updated'); closeModal('editCourseModal'); loadCourses(); }
+            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+        });
+
+        // ── Delete actions ───────────────────────────────────
+
+        async function deleteStudent(id) {
+            if (!confirm('Delete this student?')) return;
+            const res = await api(`/admin/students/${id}`, { method: 'DELETE' });
+            if (res && res.ok) { showAlert('alert', 'Student deleted'); loadStudents(); loadStats(); }
+        }
+        async function deleteTeacher(id) {
+            if (!confirm('Delete this teacher?')) return;
+            const res = await api(`/admin/teachers/${id}`, { method: 'DELETE' });
+            if (res && res.ok) { showAlert('alert', 'Teacher deleted'); loadTeachers(); loadStats(); }
+        }
+        async function deleteCourse(id) {
+            if (!confirm('Delete this course?')) return;
+            const res = await api(`/admin/courses/${id}`, { method: 'DELETE' });
+            if (res && res.ok) { showAlert('alert', 'Course deleted'); loadCourses(); loadStats(); }
+        }
+        async function unenroll(sid, cid) {
+            if (!confirm('Remove enrollment?')) return;
+            const res = await api(`/admin/unenroll?student_id=${sid}&course_id=${cid}`, { method: 'DELETE' });
+            if (res && res.ok) { showAlert('alert', 'Enrollment removed'); loadEnrollments(); }
+        }
+        async function unassign(tid, cid) {
+            if (!confirm('Remove assignment?')) return;
+            const res = await api(`/admin/unassign-teacher?teacher_id=${tid}&course_id=${cid}`, { method: 'DELETE' });
+            if (res && res.ok) { showAlert('alert', 'Assignment removed'); loadAssignments(); }
+        }
+
+        // Initial load
+        loadStats();
+    </script>
+</body>
+</html>

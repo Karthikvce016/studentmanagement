@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS — Teacher Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="nav-bar">
+        <span class="brand">SMS — Teacher</span>
+        <div class="nav-links">
+            <a href="#" class="active" onclick="showSection('courses', event)">My Courses</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+    </nav>
+    <div class="container">
+        <div id="alert" class="alert"></div>
+
+        <!-- Courses List -->
+        <div id="section-courses">
+            <div class="page-header"><h1>My Courses</h1></div>
+            <p style="color:var(--text-muted);margin-bottom:12px;font-size:0.9rem;">Courses assigned to you by the admin. Click a course to manage students, attendance and assessments.</p>
+            <div id="courses-list" class="courses-grid"></div>
+            <div id="no-courses" style="display:none;" class="card" style="text-align:center;padding:40px;">
+                <p style="color:var(--text-muted);">No courses assigned yet. Ask your admin to assign a course.</p>
+            </div>
+        </div>
+
+        <!-- Course Detail -->
+        <div id="section-detail" style="display:none;">
+            <div class="page-header">
+                <h1 id="detail-title">Course</h1>
+                <button class="btn btn-outline" onclick="showSection('courses', event)">← Back to Courses</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab(this, 'students')">Students</button>
+                <button class="tab" onclick="switchTab(this, 'attendance')">Attendance</button>
+                <button class="tab" onclick="switchTab(this, 'assessments')">Assessments</button>
+            </div>
+
+            <!-- Students Sub-tab -->
+            <div id="sub-students" class="tab-content active">
+                <div class="card table-wrapper">
+                    <table><thead><tr><th>ID</th><th>Name</th><th>Email</th></tr></thead>
+                    <tbody id="detail-students"></tbody></table>
+                </div>
+            </div>
+
+            <!-- Attendance Sub-tab -->
+            <div id="sub-attendance" class="tab-content">
+                <div class="card" style="margin-bottom:16px;">
+                    <h2 style="font-size:1rem;margin-bottom:12px;">Mark Attendance</h2>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="att-date" value="" style="max-width:200px;">
+                    </div>
+                    <div id="att-form"></div>
+                    <button class="btn btn-primary" style="margin-top:12px;" onclick="submitAttendance()">Save Attendance</button>
+                </div>
+                <div class="card">
+                    <h2 style="font-size:1rem;margin-bottom:12px;">Attendance Summary</h2>
+                    <div class="table-wrapper">
+                        <table><thead><tr><th>Student</th><th>Total</th><th>Present</th><th>%</th></tr></thead>
+                        <tbody id="att-summary"></tbody></table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assessments Sub-tab -->
+            <div id="sub-assessments" class="tab-content">
+                <div class="card" style="margin-bottom:16px;">
+                    <h2 style="font-size:1rem;margin-bottom:12px;">Create Assessment</h2>
+                    <form id="assessmentForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="margin:0;flex:1;min-width:140px;"><label>Name</label><input id="as_name" required></div>
+                        <div class="form-group" style="margin:0;min-width:120px;"><label>Type</label>
+                            <select id="as_type"><option>QUIZ</option><option>MIDTERM</option><option>FINAL</option><option>ASSIGNMENT</option></select>
+                        </div>
+                        <div class="form-group" style="margin:0;min-width:80px;"><label>Max Marks</label><input type="number" id="as_max" value="50" required min="1"></div>
+                        <div class="form-group" style="margin:0;min-width:120px;"><label>Date</label><input type="date" id="as_date"></div>
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2 style="font-size:1rem;margin-bottom:12px;">Assessments</h2>
+                    <div class="table-wrapper">
+                        <table><thead><tr><th>Name</th><th>Type</th><th>Max Marks</th><th>Date</th><th>Actions</th></tr></thead>
+                        <tbody id="assessments-table"></tbody></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Marks Entry Modal -->
+        <div id="marksModal" class="modal-overlay">
+            <div class="modal">
+                <h2 id="marks-title">Enter Marks</h2>
+                <div id="marks-form"></div>
+                <div class="modal-actions">
+                    <button class="btn btn-outline" onclick="closeModal('marksModal')">Cancel</button>
+                    <button class="btn btn-primary" onclick="submitMarks()">Save Marks</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        requireAuth('TEACHER');
+        let currentCourseId = null;
+        let currentAssessmentId = null;
+
+        function showSection(name, e) {                              // Fix #12
+            document.getElementById('section-courses').style.display = name === 'courses' ? 'block' : 'none';
+            document.getElementById('section-detail').style.display = name === 'detail' ? 'block' : 'none';
+            if (name === 'courses') loadCourses();
+        }
+
+        function switchTab(btn, name) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById('sub-' + name).classList.add('active');
+            if (name === 'students') loadStudents();
+            if (name === 'attendance') loadAttendance();
+            if (name === 'assessments') loadAssessments();
+        }
+
+        async function loadCourses() {
+            const res = await api('/teacher/courses');
+            if (!res) return;
+            const data = await res.json();
+            const listEl = document.getElementById('courses-list');
+            const emptyEl = document.getElementById('no-courses');
+            
+            if (data.length === 0) {
+                listEl.style.display = 'none';
+                emptyEl.style.display = 'block';
+            } else {
+                emptyEl.style.display = 'none';
+                listEl.style.display = 'grid'; // restoring grid display
+                listEl.className = 'stats-grid'; // Ensure it has grid styling
+                listEl.innerHTML = data.map(c => `
+                    <div class="stat-card" style="cursor:pointer;text-align:left;transition:transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='none';this.style.boxShadow='var(--shadow)'" onclick="openCourse(${esc(c.id)}, '${esc(c.name)}')">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div style="font-weight:700;font-size:1.1rem;color:var(--primary);">${esc(c.code)}</div>
+                            <span class="badge badge-info">${esc(c.credits)} cr</span>
+                        </div>
+                        <div style="font-weight:600;font-size:1rem;margin-top:8px;">${esc(c.name)}</div>
+                        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:4px;">${esc(c.department) || '—'}</div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function openCourse(id, name) {
+            currentCourseId = id;
+            document.getElementById('detail-title').textContent = name;
+            showSection('detail');
+            // Reset tabs
+            document.querySelectorAll('.tab')[0].click();
+        }
+
+        async function loadStudents() {
+            const res = await api(`/teacher/courses/${currentCourseId}/students`);
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('detail-students').innerHTML = data.map(s => `
+                <tr><td>${esc(s.student_id)}</td><td>${esc(s.first_name)} ${esc(s.last_name)}</td><td>${esc(s.email) || '—'}</td></tr>
+            `).join('') || '<tr><td colspan="3">No students enrolled.</td></tr>';
+
+            // Also populate the attendance form
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('att-date').value = today;
+            document.getElementById('att-form').innerHTML = data.map(s => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+                    <span>${esc(s.first_name)} ${esc(s.last_name)}</span>
+                    <select class="attendance-select" data-student="${esc(s.student_id)}">
+                        <option value="PRESENT">Present</option>
+                        <option value="ABSENT">Absent</option>
+                    </select>
+                </div>
+            `).join('');
+        }
+
+        async function submitAttendance() {
+            const date = document.getElementById('att-date').value;
+            if (!date) { showAlert('alert', 'Select a date', 'error'); return; }
+            const selects = document.querySelectorAll('.attendance-select');
+            const records = Array.from(selects).map(s => ({
+                student_id: parseInt(s.dataset.student),
+                status: s.value
+            }));
+            const res = await api('/teacher/attendance', {
+                method: 'POST',
+                body: JSON.stringify({ course_id: currentCourseId, date, records })
+            });
+            if (!res) return;
+            if (res.ok) { showAlert('alert', 'Attendance saved'); loadAttendance(); }
+            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+        }
+
+        async function loadAttendance() {
+            const res = await api(`/teacher/attendance/${currentCourseId}`);
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('att-summary').innerHTML = data.map(s => `
+                <tr>
+                    <td>${esc(s.student_name)}</td><td>${esc(s.total_classes)}</td><td>${esc(s.present)}</td>
+                    <td><span class="badge ${s.percentage >= 75 ? 'badge-success' : 'badge-danger'}">${esc(s.percentage)}%</span></td>
+                </tr>
+            `).join('') || '<tr><td colspan="4">No attendance records.</td></tr>';
+        }
+
+        async function loadAssessments() {
+            const res = await api(`/teacher/assessments/${currentCourseId}`);
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('assessments-table').innerHTML = data.map(a => `
+                <tr>
+                    <td>${esc(a.name)}</td><td><span class="badge badge-info">${esc(a.type)}</span></td>
+                    <td>${esc(a.max_marks)}</td><td>${esc(a.date) || '—'}</td>
+                    <td><button class="btn btn-primary btn-sm" onclick="openMarks(${esc(a.id)}, '${esc(a.name)}', ${esc(a.max_marks)})">Enter Marks</button></td>
+                </tr>
+            `).join('') || '<tr><td colspan="5">No assessments yet.</td></tr>';
+        }
+
+        document.getElementById('assessmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await api('/teacher/assessments', {
+                method: 'POST',
+                body: JSON.stringify({
+                    course_id: currentCourseId,
+                    name: document.getElementById('as_name').value,
+                    type: document.getElementById('as_type').value,
+                    max_marks: parseFloat(document.getElementById('as_max').value),
+                    date: document.getElementById('as_date').value || null
+                })
+            });
+            if (!res) return;
+            if (res.ok) { showAlert('alert', 'Assessment created'); loadAssessments(); e.target.reset(); }
+            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+        });
+
+        async function openMarks(assessmentId, name, maxMarks) {
+            currentAssessmentId = assessmentId;
+            document.getElementById('marks-title').textContent = `Enter Marks — ${name} (Max: ${maxMarks})`;
+
+            // Load existing marks
+            const marksRes = await api(`/teacher/marks/${assessmentId}`);
+            const existingMarks = marksRes ? await marksRes.json() : [];
+            const marksMap = {};
+            existingMarks.forEach(m => marksMap[m.student_id] = m.marks_obtained);
+
+            const res = await api(`/teacher/courses/${currentCourseId}/students`);
+            if (!res) return;
+            const students = await res.json();
+            document.getElementById('marks-form').innerHTML = students.map(s => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+                    <span>${esc(s.first_name)} ${esc(s.last_name)}</span>
+                    <input type="number" step="0.1" min="0" max="${esc(maxMarks)}" data-student="${esc(s.student_id)}" 
+                           value="${marksMap[s.student_id] !== undefined ? esc(marksMap[s.student_id]) : ''}" 
+                           style="width:80px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;">
+                </div>
+            `).join('');
+            openModal('marksModal');
+        }
+
+        async function submitMarks() {
+            const inputs = document.querySelectorAll('#marks-form input');
+            const marks = Array.from(inputs)
+                .filter(i => i.value !== '')
+                .map(i => ({ student_id: parseInt(i.dataset.student), marks_obtained: parseFloat(i.value) }));
+            if (marks.length === 0) { showAlert('alert', 'Enter at least one mark', 'error'); return; }
+            const res = await api('/teacher/marks', {
+                method: 'POST',
+                body: JSON.stringify({ assessment_id: currentAssessmentId, marks })
+            });
+            if (!res) return;
+            if (res.ok) { showAlert('alert', 'Marks saved'); closeModal('marksModal'); }
+            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+        }
+
+        loadCourses();
+    </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS — Student Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="nav-bar">
+        <span class="brand">SMS — Student</span>
+        <div class="nav-links">
+            <a href="#" class="active" onclick="showTab('profile', event)">Profile</a>
+            <a href="#" onclick="showTab('attendance', event)">Attendance</a>
+            <a href="#" onclick="showTab('marks', event)">Marks</a>
+            <a href="#" onclick="showTab('password', event)">Change Password</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+    </nav>
+    <div class="container">
+        <div id="alert" class="alert"></div>
+
+        <!-- Profile Tab -->
+        <div id="tab-profile" class="tab-content active">
+            <div class="page-header"><h1>My Profile</h1></div>
+            <div class="card">
+                <table>
+                    <tbody id="profile-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Attendance Tab -->
+        <div id="tab-attendance" class="tab-content">
+            <div class="page-header"><h1>My Attendance</h1></div>
+            <div class="card table-wrapper">
+                <table>
+                    <thead><tr><th>Course Code</th><th>Course Name</th><th>Total Classes</th><th>Present</th><th>Absent</th><th>Percentage</th></tr></thead>
+                    <tbody id="attendance-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Marks Tab -->
+        <div id="tab-marks" class="tab-content">
+            <div class="page-header"><h1>My Marks</h1></div>
+            <div class="card table-wrapper">
+                <table>
+                    <thead><tr><th>Course</th><th>Assessment</th><th>Type</th><th>Obtained</th><th>Max</th><th>Percentage</th></tr></thead>
+                    <tbody id="marks-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Change Password Tab -->
+        <div id="tab-password" class="tab-content">
+            <div class="page-header"><h1>Change Password</h1></div>
+            <div class="card" style="max-width:400px;">
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
+                    Minimum 8 characters, must include letters and numbers.
+                </p>
+                <form id="pwdForm">
+                    <div class="form-group"><label>Current Password</label><input type="password" id="old_pwd" required></div>
+                    <div class="form-group"><label>New Password</label><input type="password" id="new_pwd" required minlength="8"></div>
+                    <div class="form-group"><label>Confirm Password</label><input type="password" id="confirm_pwd" required minlength="8"></div>
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        requireAuth('STUDENT');
+
+        function showTab(name, e) {                          // Fix #12 — explicit event param
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            if (e && e.target) e.target.classList.add('active');
+            if (name === 'profile') loadProfile();
+            if (name === 'attendance') loadAttendance();
+            if (name === 'marks') loadMarks();
+        }
+
+        async function loadProfile() {
+            const res = await api('/student/profile');
+            if (!res) return;
+            const p = await res.json();
+            document.getElementById('profile-table').innerHTML = `
+                <tr><td style="font-weight:600;width:150px;">Username</td><td>${esc(p.username)}</td></tr>
+                <tr><td style="font-weight:600;">Name</td><td>${esc(p.first_name)} ${esc(p.last_name)}</td></tr>
+                <tr><td style="font-weight:600;">Date of Birth</td><td>${esc(p.dob)}</td></tr>
+                <tr><td style="font-weight:600;">Email</td><td>${esc(p.email) || '—'}</td></tr>
+                <tr><td style="font-weight:600;">Phone</td><td>${esc(p.phone) || '—'}</td></tr>
+                <tr><td style="font-weight:600;">Address</td><td>${esc(p.address) || '—'}</td></tr>
+                <tr><td style="font-weight:600;">Enrollment Date</td><td>${esc(p.enrollment_date) || '—'}</td></tr>
+            `;
+        }
+
+        async function loadAttendance() {
+            const res = await api('/student/attendance');
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('attendance-table').innerHTML = data.map(a => `
+                <tr>
+                    <td>${esc(a.course_code)}</td><td>${esc(a.course_name)}</td>
+                    <td>${esc(a.total_classes)}</td><td>${esc(a.present)}</td><td>${esc(a.absent)}</td>
+                    <td><span class="badge ${a.percentage >= 75 ? 'badge-success' : 'badge-danger'}">${esc(a.percentage)}%</span></td>
+                </tr>
+            `).join('') || '<tr><td colspan="6">No attendance records.</td></tr>';
+        }
+
+        async function loadMarks() {
+            const res = await api('/student/marks');
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('marks-table').innerHTML = data.map(m => `
+                <tr>
+                    <td>${esc(m.course_code)} — ${esc(m.course_name)}</td>
+                    <td>${esc(m.assessment_name)}</td>
+                    <td><span class="badge badge-info">${esc(m.assessment_type)}</span></td>
+                    <td>${esc(m.marks_obtained)}</td><td>${esc(m.max_marks)}</td>
+                    <td><span class="badge ${m.percentage >= 50 ? 'badge-success' : 'badge-danger'}">${esc(m.percentage)}%</span></td>
+                </tr>
+            `).join('') || '<tr><td colspan="6">No marks available.</td></tr>';
+        }
+
+        document.getElementById('pwdForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const new_pwd = document.getElementById('new_pwd').value;
+            if (new_pwd !== document.getElementById('confirm_pwd').value) {
+                showAlert('alert', 'Passwords do not match', 'error');
+                return;
+            }
+            const res = await api('/auth/change-password', {
+                method: 'POST',
+                body: JSON.stringify({
+                    old_password: document.getElementById('old_pwd').value,
+                    new_password: new_pwd
+                })
+            });
+            if (!res) return;
+            if (res.ok) { showAlert('alert', 'Password changed!'); e.target.reset(); }
+            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+        });
+
+        loadProfile();
+    </script>
+</body>
+</html>
