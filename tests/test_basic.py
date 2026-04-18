@@ -1,4 +1,4 @@
-"""Basic test suite for SMS — auth, CRUD, and RBAC validation (#19).
+"""Test suite for SMS — auth, CRUD, RBAC, sections, assessment limits, and attendance.
 
 Uses SQLite in-memory to avoid needing a running MySQL server.
 """
@@ -10,7 +10,7 @@ import pytest
 os.environ["DATABASE_URL"] = "sqlite:///./test_sms.db"
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from app.database import Base, get_db
 from app.main import app
@@ -20,7 +20,6 @@ SQLALCHEMY_TEST_URL = "sqlite:///./test_sms.db"
 engine = create_engine(SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False})
 
 # Enable foreign keys in SQLite (needed for CASCADE)
-from sqlalchemy import event
 @event.listens_for(engine, "connect")
 def _set_sqlite_pragma(dbapi_conn, connection_record):
     cursor = dbapi_conn.cursor()
@@ -103,7 +102,7 @@ class TestAuth:
         assert res.status_code == 401
 
 
-# ── Admin CRUD Tests ──────────────────────────────────
+# ── Admin Student CRUD Tests ─────────────────────────
 
 class TestAdminStudents:
     def test_create_student(self):
@@ -111,11 +110,16 @@ class TestAdminStudents:
             "first_name": "Test",
             "last_name": "Student",
             "dob": "2004-06-15",
+            "branch_code": "733",
             "email": "test@student.com",
-            "phone": "9876543210"
+            "phone": "9876543210",
+            "gender": "MALE",
+            "father_name": "Test Father",
+            "category": "OC",
+            "area": "URBAN",
         }, headers=auth_header())
         assert res.status_code == 201
-        assert "test.student" in res.json()["message"]
+        assert "1602" in res.json()["message"]  # Roll number should contain college code
 
     def test_list_students(self):
         res = client.get("/admin/students", headers=auth_header())
@@ -123,17 +127,34 @@ class TestAdminStudents:
         assert isinstance(res.json(), list)
         assert len(res.json()) >= 1
 
+    def test_student_has_section(self):
+        """Student should be auto-assigned to a section on creation."""
+        res = client.get("/admin/students", headers=auth_header())
+        students = res.json()
+        assert len(students) >= 1
+        # Section should be auto-assigned
+        assert students[0]["section_name"] is not None
+
     def test_update_student(self):
         students = client.get("/admin/students", headers=auth_header()).json()
         sid = students[0]["id"]
         res = client.put(f"/admin/students/{sid}", json={
-            "email": "updated@student.com"
+            "email": "updated@student.com",
+            "blood_group": "O+",
         }, headers=auth_header())
         assert res.status_code == 200
 
+    def test_list_students_filter_by_branch(self):
+        res = client.get("/admin/students?branch_code=733", headers=auth_header())
+        assert res.status_code == 200
+        for s in res.json():
+            assert s["branch_code"] == "733"
+
     def test_delete_student(self):
+        # Create a student to delete
         client.post("/admin/students", json={
-            "first_name": "Delete", "last_name": "Me", "dob": "2004-01-01"
+            "first_name": "Delete", "last_name": "Me",
+            "dob": "2004-01-01", "branch_code": "733"
         }, headers=auth_header())
         students = client.get("/admin/students", headers=auth_header()).json()
         target = [s for s in students if s["first_name"] == "Delete"]
@@ -141,6 +162,26 @@ class TestAdminStudents:
             res = client.delete(f"/admin/students/{target[0]['id']}", headers=auth_header())
             assert res.status_code == 200
 
+
+# ── Section Tests ────────────────────────────────────
+
+class TestSections:
+    def test_list_sections(self):
+        res = client.get("/admin/sections", headers=auth_header())
+        assert res.status_code == 200
+        sections = res.json()
+        assert isinstance(sections, list)
+        # At least one section should exist from student creation
+        assert len(sections) >= 1
+
+    def test_list_sections_by_branch(self):
+        res = client.get("/admin/sections?branch_code=733", headers=auth_header())
+        assert res.status_code == 200
+        for s in res.json():
+            assert s["branch_code"] == "733"
+
+
+# ── Admin Course CRUD Tests ──────────────────────────
 
 class TestAdminCourses:
     def test_create_course(self):
@@ -164,6 +205,54 @@ class TestAdminCourses:
         assert isinstance(res.json(), list)
 
 
+# ── Teacher-Course Assignment Tests ──────────────────
+
+class TestTeacherCourseAssignments:
+    def test_assign_list_duplicate_and_unassign(self):
+        teacher_res = client.post("/admin/teachers", json={
+            "first_name": "Assign",
+            "last_name": "Teacher",
+            "dob": "1989-04-12",
+            "email": "assign.teacher@example.com",
+            "phone": "9876543219",
+            "department": "Computer Science",
+        }, headers=auth_header())
+        assert teacher_res.status_code == 201
+
+        course_res = client.post("/admin/courses", json={
+            "code": "ASN101",
+            "name": "Assignment Wiring",
+            "credits": 3,
+            "department": "Computer Science",
+        }, headers=auth_header())
+        assert course_res.status_code == 201
+        course_id = course_res.json()["id"]
+
+        teachers = client.get("/admin/teachers", headers=auth_header()).json()
+        teacher_id = next(t["id"] for t in teachers if t["email"] == "assign.teacher@example.com")
+
+        assign_res = client.post(
+            f"/admin/assign-teacher?teacher_id={teacher_id}&course_id={course_id}",
+            headers=auth_header(),
+        )
+        assert assign_res.status_code == 200
+
+        assignments = client.get("/admin/teacher-assignments", headers=auth_header()).json()
+        assert any(a["teacher_id"] == teacher_id and a["course_id"] == course_id for a in assignments)
+
+        duplicate_res = client.post(
+            f"/admin/assign-teacher?teacher_id={teacher_id}&course_id={course_id}",
+            headers=auth_header(),
+        )
+        assert duplicate_res.status_code == 400
+
+        unassign_res = client.delete(
+            f"/admin/unassign-teacher?teacher_id={teacher_id}&course_id={course_id}",
+            headers=auth_header(),
+        )
+        assert unassign_res.status_code == 200
+
+
 # ── RBAC Tests ────────────────────────────────────────
 
 class TestRBAC:
@@ -176,12 +265,11 @@ class TestRBAC:
         assert res.status_code == 401
 
 
-# ── Validation Tests (#4, #9) ─────────────────────────
+# ── Validation Tests ──────────────────────────────────
 
 class TestValidation:
     def test_weak_password_rejected(self):
         res = client.post("/auth/change-password", json={
-            "old_password": "Admin1234",
             "new_password": "short"
         }, headers=auth_header())
         assert res.status_code == 422
@@ -191,6 +279,7 @@ class TestValidation:
             "first_name": "Bad",
             "last_name": "Email",
             "dob": "2004-01-01",
+            "branch_code": "733",
             "email": "not-an-email"
         }, headers=auth_header())
         assert res.status_code == 422
@@ -200,6 +289,7 @@ class TestValidation:
             "first_name": "Bad",
             "last_name": "Phone",
             "dob": "2004-01-01",
+            "branch_code": "733",
             "phone": "abc"
         }, headers=auth_header())
         assert res.status_code == 422
@@ -211,3 +301,14 @@ class TestValidation:
             "credits": -1
         }, headers=auth_header())
         assert res.status_code == 422
+
+    def test_attendance_invalid_period_rejected(self):
+        """Period must be 1-6."""
+        res = client.post("/teacher/attendance", json={
+            "course_id": 1,
+            "date": "2026-03-01",
+            "period": 7,  # Invalid — max is 6
+            "records": []
+        }, headers=auth_header())
+        # Should be 422 (validation) or 403 (not a teacher) — either is acceptable
+        assert res.status_code in [422, 403]

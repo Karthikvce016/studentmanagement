@@ -37,9 +37,6 @@ def change_password(req: ChangePasswordRequest, current_user: User = Depends(get
     """Change password. Also clears the must_change_password flag.
     New password must be at least 8 chars with mixed letters + numbers (#4).
     """
-    if not verify_password(req.old_password, current_user.password_hash):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Old password is incorrect")
-
     current_user.password_hash = hash_password(req.new_password)
     current_user.must_change_password = False
     db.commit()

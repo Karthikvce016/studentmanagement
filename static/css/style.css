@@ -271,6 +271,14 @@ select.attendance-select {
     transition: border-color 0.2s;
 }
 .ss-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+.ss-input-locked {
+    background: #f1f5f9;
+    cursor: default;
+}
+.ss-input-locked:focus {
+    border-color: var(--border);
+    box-shadow: none;
+}
 
 .ss-list {
     display: none;

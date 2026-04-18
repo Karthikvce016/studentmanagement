@@ -1,13 +1,14 @@
-"""Teacher routes — courses, attendance, assessments, marks."""
+"""Teacher routes — courses, per-period attendance, assessments (with limits), marks."""
 
 import logging
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import (
     User, Teacher, TeacherCourse, Course, Enrollment,
-    Attendance, AttendanceStatus, Assessment, AssessmentType, Mark, Student
+    Attendance, AttendanceStatus, Assessment, AssessmentType, Mark, Student,
+    ASSESSMENT_LIMITS
 )
 from app.schemas import AttendanceMark, AssessmentCreate, MarksUpload
 from app.dependencies import require_role
@@ -44,7 +45,7 @@ def my_courses(db: Session = Depends(get_db), current_user: User = Depends(teach
     tc_list = (
         db.query(TeacherCourse)
         .filter(TeacherCourse.teacher_id == teacher.id)
-        .options(joinedload(TeacherCourse.course))      # Fix #6
+        .options(joinedload(TeacherCourse.course))
         .all()
     )
     return [{
@@ -57,29 +58,44 @@ def my_courses(db: Session = Depends(get_db), current_user: User = Depends(teach
 
 
 @router.get("/courses/{course_id}/students")
-def course_students(course_id: int, db: Session = Depends(get_db), current_user: User = Depends(teacher_required)):
+def course_students(
+    course_id: int,
+    section_id: int = Query(None, description="Filter by section"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(teacher_required),
+):
+    """List students enrolled in a course, optionally filtered by section."""
     teacher = get_teacher(current_user, db)
     _verify_course_access(teacher, course_id, db)
 
-    enrollments = (
+    query = (
         db.query(Enrollment)
         .filter(Enrollment.course_id == course_id)
-        .options(joinedload(Enrollment.student))        # Fix #6
-        .all()
+        .options(joinedload(Enrollment.student).joinedload(Student.section))
     )
+
+    enrollments = query.all()
+
+    # Filter by section in Python (simpler than a cross-table join)
+    if section_id is not None:
+        enrollments = [e for e in enrollments if e.student.section_id == section_id]
+
     return [{
         "student_id": e.student.id,
+        "roll_number": e.student.roll_number,
         "first_name": e.student.first_name,
         "last_name": e.student.last_name,
+        "section": e.student.section.name if e.student.section else None,
         "email": e.student.email,
         "enrollment_id": e.id
     } for e in enrollments]
 
 
-# ── Attendance ────────────────────────────────────────
+# ── Attendance (per-period) ──────────────────────────
 
 @router.post("/attendance")
 def mark_attendance(data: AttendanceMark, db: Session = Depends(get_db), current_user: User = Depends(teacher_required)):
+    """Mark attendance for a specific period (1–6) on a given date."""
     teacher = get_teacher(current_user, db)
     _verify_course_access(teacher, data.course_id, db)
 
@@ -91,32 +107,54 @@ def mark_attendance(data: AttendanceMark, db: Session = Depends(get_db), current
         if not enrollment:
             continue
 
-        # Update if exists, else create
+        # Update if exists for this enrollment+date+period, else create
         existing = db.query(Attendance).filter(
             Attendance.enrollment_id == enrollment.id,
-            Attendance.date == data.date
+            Attendance.date == data.date,
+            Attendance.period == data.period
         ).first()
         if existing:
             existing.status = record.status
         else:
-            db.add(Attendance(enrollment_id=enrollment.id, date=data.date, status=record.status))
+            db.add(Attendance(
+                enrollment_id=enrollment.id,
+                date=data.date,
+                period=data.period,
+                status=record.status
+            ))
 
     db.commit()
-    logger.info("Teacher %s marked attendance for course %d on %s", current_user.username, data.course_id, data.date)
-    return {"message": "Attendance marked successfully"}
+    logger.info(
+        "Teacher %s marked attendance for course %d, period %d on %s",
+        current_user.username, data.course_id, data.period, data.date
+    )
+    return {"message": f"Attendance marked for period {data.period}"}
 
 
 @router.get("/attendance/{course_id}")
-def view_attendance(course_id: int, db: Session = Depends(get_db), current_user: User = Depends(teacher_required)):
+def view_attendance(
+    course_id: int,
+    section_id: int = Query(None, description="Filter by section"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(teacher_required),
+):
+    """View attendance summary for all students in a course."""
     teacher = get_teacher(current_user, db)
     _verify_course_access(teacher, course_id, db)
 
     enrollments = (
         db.query(Enrollment)
         .filter(Enrollment.course_id == course_id)
-        .options(joinedload(Enrollment.student), joinedload(Enrollment.attendances))  # Fix #6
+        .options(
+            joinedload(Enrollment.student).joinedload(Student.section),
+            joinedload(Enrollment.attendances),
+        )
         .all()
     )
+
+    if section_id is not None:
+        enrollments = [e for e in enrollments if e.student.section_id == section_id]
+
     result = []
     for e in enrollments:
         records = e.attendances
@@ -124,15 +162,57 @@ def view_attendance(course_id: int, db: Session = Depends(get_db), current_user:
         present = sum(1 for r in records if r.status == AttendanceStatus.PRESENT)
         result.append({
             "student_id": e.student.id,
+            "roll_number": e.student.roll_number,
             "student_name": f"{e.student.first_name} {e.student.last_name}",
-            "total_classes": total,
+            "section": e.student.section.name if e.student.section else None,
+            "total_periods": total,
             "present": present,
+            "absent": total - present,
             "percentage": round((present / total * 100), 1) if total > 0 else 0
         })
     return result
 
 
-# ── Assessments ───────────────────────────────────────
+@router.get("/attendance/{course_id}/date/{att_date}")
+def view_attendance_by_date(
+    course_id: int,
+    att_date: date,
+    section_id: int = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(teacher_required),
+):
+    """View all period-wise attendance for a course on a specific date."""
+    teacher = get_teacher(current_user, db)
+    _verify_course_access(teacher, course_id, db)
+
+    enrollments = (
+        db.query(Enrollment)
+        .filter(Enrollment.course_id == course_id)
+        .options(
+            joinedload(Enrollment.student).joinedload(Student.section),
+            joinedload(Enrollment.attendances),
+        )
+        .all()
+    )
+
+    if section_id is not None:
+        enrollments = [e for e in enrollments if e.student.section_id == section_id]
+
+    result = []
+    for e in enrollments:
+        day_records = [r for r in e.attendances if r.date == att_date]
+        periods = {r.period: r.status.value for r in day_records}
+        result.append({
+            "student_id": e.student.id,
+            "roll_number": e.student.roll_number,
+            "student_name": f"{e.student.first_name} {e.student.last_name}",
+            "section": e.student.section.name if e.student.section else None,
+            "periods": periods  # e.g. {1: "PRESENT", 2: "ABSENT", ...}
+        })
+    return result
+
+
+# ── Assessments (with limits) ────────────────────────
 
 @router.get("/assessments/{course_id}")
 def list_assessments(course_id: int, db: Session = Depends(get_db), current_user: User = Depends(teacher_required)):
@@ -153,6 +233,20 @@ def list_assessments(course_id: int, db: Session = Depends(get_db), current_user
 def create_assessment(data: AssessmentCreate, db: Session = Depends(get_db), current_user: User = Depends(teacher_required)):
     teacher = get_teacher(current_user, db)
     _verify_course_access(teacher, data.course_id, db)
+
+    # Enforce assessment limits per course
+    existing_count = db.query(Assessment).filter(
+        Assessment.course_id == data.course_id,
+        Assessment.type == data.type
+    ).count()
+
+    limit = ASSESSMENT_LIMITS.get(data.type, 99)
+    if existing_count >= limit:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {limit} {data.type.value.lower()}s allowed per course. "
+                   f"Already have {existing_count}."
+        )
 
     assessment = Assessment(
         course_id=data.course_id, name=data.name,
@@ -176,7 +270,7 @@ def upload_marks(data: MarksUpload, db: Session = Depends(get_db), current_user:
     _verify_course_access(teacher, assessment.course_id, db)
 
     for entry in data.marks:
-        # Validate marks don't exceed max (#9)
+        # Validate marks don't exceed max
         if entry.marks_obtained > assessment.max_marks:
             raise HTTPException(
                 status_code=400,
@@ -204,12 +298,14 @@ def view_marks(assessment_id: int, db: Session = Depends(get_db), current_user: 
     marks = (
         db.query(Mark)
         .filter(Mark.assessment_id == assessment_id)
-        .options(joinedload(Mark.student))              # Fix #6
+        .options(joinedload(Mark.student).joinedload(Student.section))
         .all()
     )
     return [{
         "student_id": m.student.id,
+        "roll_number": m.student.roll_number,
         "student_name": f"{m.student.first_name} {m.student.last_name}",
+        "section": m.student.section.name if m.student.section else None,
         "marks_obtained": m.marks_obtained,
         "max_marks": assessment.max_marks
     } for m in marks]

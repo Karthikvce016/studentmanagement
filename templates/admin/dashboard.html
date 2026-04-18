@@ -219,10 +219,10 @@
             <h2>Enroll Student in Course</h2>
             <form id="enrollForm">
                 <div class="form-group"><label>Student</label>
-                    <select id="e_student" required><option value="">Select student...</option></select>
+                    <select id="e_student"><option value="">Select student...</option></select>
                 </div>
                 <div class="form-group"><label>Course</label>
-                    <select id="e_course" required><option value="">Select course...</option></select>
+                    <select id="e_course"><option value="">Select course...</option></select>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-outline" onclick="closeModal('enrollModal')">Cancel</button>
@@ -238,10 +238,10 @@
             <h2>Assign Teacher to Course</h2>
             <form id="assignForm">
                 <div class="form-group"><label>Teacher</label>
-                    <select id="a_teacher" required><option value="">Select teacher...</option></select>
+                    <select id="a_teacher"><option value="">Select teacher...</option></select>
                 </div>
                 <div class="form-group"><label>Course</label>
-                    <select id="a_course" required><option value="">Select course...</option></select>
+                    <select id="a_course"><option value="">Select course...</option></select>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-outline" onclick="closeModal('assignModal')">Cancel</button>
@@ -307,7 +307,7 @@
                     <td>${esc(t.first_name)} ${esc(t.last_name)}</td>
                     <td>${esc(t.dob)}</td><td>${esc(t.email) || '&mdash;'}</td><td>${esc(t.department) || '&mdash;'}</td>
                     <td class="btn-group">
-                        <button class="btn btn-primary btn-sm" onclick="assignCourseForTeacher(${esc(t.id)}, '${esc(t.first_name)} ${esc(t.last_name)}')">+ Assign Course</button>
+                        <button class="btn btn-primary btn-sm" data-teacher-id="${esc(t.id)}" data-teacher-name="${esc(t.first_name)} ${esc(t.last_name)}" onclick="assignCourseFromButton(this)">+ Assign Course</button>
                         <button class="btn btn-outline btn-sm" onclick='editTeacher(${JSON.stringify(t).replace(/'/g, "&#39;")})'>Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteTeacher(${esc(t.id)})">Delete</button>
                     </td>
@@ -324,6 +324,7 @@
                     <td>${esc(c.id)}</td><td>${esc(c.code)}</td><td>${esc(c.name)}</td>
                     <td>${esc(c.credits)}</td><td>${esc(c.department) || '—'}</td>
                     <td class="btn-group">
+                        <button class="btn btn-primary btn-sm" data-course-id="${esc(c.id)}" data-course-name="${esc(c.code)} — ${esc(c.name)}" onclick="assignTeacherFromButton(this)">+ Assign Teacher</button>
                         <button class="btn btn-outline btn-sm" onclick='editCourse(${JSON.stringify(c).replace(/'/g, "&#39;")})'>Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteCourse(${esc(c.id)})">Delete</button>
                     </td>
@@ -420,6 +421,7 @@
             e.preventDefault();
             const sid = document.getElementById('e_student').value;
             const cid = document.getElementById('e_course').value;
+            if (!sid || !cid) { showAlert('alert', 'Please select both a student and a course.', 'error'); return; }
             const res = await api(`/admin/enroll?student_id=${sid}&course_id=${cid}`, { method: 'POST' });
             if (!res) return;
             const data = await res.json();
@@ -431,6 +433,7 @@
             e.preventDefault();
             const tid = document.getElementById('a_teacher').value;
             const cid = document.getElementById('a_course').value;
+            if (!tid || !cid) { showAlert('alert', 'Please select both a teacher and a course.', 'error'); return; }
             const res = await api(`/admin/assign-teacher?teacher_id=${tid}&course_id=${cid}`, { method: 'POST' });
             if (!res) return;
             const data = await res.json();

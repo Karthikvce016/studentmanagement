@@ -1,16 +1,17 @@
-"""Admin routes — CRUD for students, teachers, courses + dashboard stats."""
+"""Admin routes — CRUD for students, teachers, courses, sections + dashboard stats."""
 
 import logging
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from app.database import get_db
-from app.models import User, Role, Student, Teacher, Course, TeacherCourse, Enrollment
+from app.models import User, Role, Student, Teacher, Course, TeacherCourse, Enrollment, Section
 from app.schemas import (
     StudentCreate, StudentUpdate, StudentOut,
     TeacherCreate, TeacherUpdate, TeacherOut,
     CourseCreate, CourseUpdate, CourseOut,
-    DashboardStats
+    SectionOut, DashboardStats
 )
 from app.security import hash_password
 from app.dependencies import require_role
@@ -25,6 +26,8 @@ admin_required = require_role("ADMIN")
 # ── Helpers ────────────────────────────────────────────
 
 COLLEGE_CODE = "1602"  # Your college code
+SECTION_SIZE = 65      # Students per section
+
 
 def _generate_roll_number(db: Session, branch_code: str, joining_year: int) -> str:
     """Generate roll number: 1602-YY-BBB-NNN (auto-incremented serial)."""
@@ -41,6 +44,28 @@ def _generate_roll_number(db: Session, branch_code: str, joining_year: int) -> s
     )
     serial = str(existing + 1).zfill(3)  # Zero-pad to 3 digits
     return f"{COLLEGE_CODE}-{yy}-{branch_code}-{serial}"
+
+
+def _get_or_create_section(db: Session, branch_code: str, joining_year: int, serial: int) -> Section:
+    """Auto-assign student to a section based on their roll serial number.
+    
+    First 65 → A, 66–130 → B, 131–195 → C, etc.
+    """
+    section_index = (serial - 1) // SECTION_SIZE  # 0-based
+    section_name = chr(ord('A') + section_index)   # A, B, C ...
+
+    section = db.query(Section).filter(
+        Section.name == section_name,
+        Section.branch_code == branch_code,
+        Section.year == joining_year
+    ).first()
+
+    if not section:
+        section = Section(name=section_name, branch_code=branch_code, year=joining_year)
+        db.add(section)
+        db.flush()
+
+    return section
 
 
 def _generate_unique_username(db: Session, first_name: str, last_name: str) -> str:
@@ -77,10 +102,16 @@ def _create_teacher_with_profile(db: Session, first_name: str, last_name: str,
 
 def _create_student_with_profile(db: Session, first_name: str, last_name: str,
                                   dob: date, branch_code: str, **profile_fields) -> str:
-    """Create a User + Student profile with roll number as username."""
+    """Create a User + Student profile with roll number as username.
+    Auto-assigns to a section based on roll serial.
+    """
     joining_year = date.today().year
     roll_number = _generate_roll_number(db, branch_code, joining_year)
     default_password = dob.strftime("%d%m%Y")
+
+    # Extract serial from roll number to determine section
+    serial = int(roll_number.split("-")[-1])
+    section = _get_or_create_section(db, branch_code, joining_year, serial)
 
     role = db.query(Role).filter(Role.name == "STUDENT").first()
     if not role:
@@ -91,11 +122,39 @@ def _create_student_with_profile(db: Session, first_name: str, last_name: str,
     db.add(user)
     db.flush()
 
-    student = Student(user_id=user.id, roll_number=roll_number, branch_code=branch_code,
-                      first_name=first_name, last_name=last_name, dob=dob,
-                      enrollment_date=date.today(), **profile_fields)
+    student = Student(
+        user_id=user.id, roll_number=roll_number, branch_code=branch_code,
+        section_id=section.id,
+        first_name=first_name, last_name=last_name, dob=dob,
+        enrollment_date=date.today(), **profile_fields
+    )
     db.add(student)
     return roll_number
+
+
+def _build_student_out(s: Student) -> StudentOut:
+    """Build a StudentOut response from a Student model instance."""
+    return StudentOut(
+        id=s.id, user_id=s.user_id, username=s.user.username,
+        roll_number=s.roll_number, branch_code=s.branch_code,
+        section_name=s.section.name if s.section else None,
+        first_name=s.first_name, last_name=s.last_name,
+        gender=s.gender.value if s.gender else None,
+        dob=s.dob, email=s.email, phone=s.phone, address=s.address,
+        father_name=s.father_name,
+        enrollment_date=s.enrollment_date,
+        current_year=s.current_year, current_semester=s.current_semester,
+        blood_group=s.blood_group,
+        cet_qualified=s.cet_qualified, rank=s.rank,
+        religion=s.religion, nationality=s.nationality,
+        admission_category=s.admission_category.value if s.admission_category else None,
+        category=s.category.value if s.category else None,
+        area=s.area.value if s.area else None,
+        mentor_name=s.mentor_name, mentor_id=s.mentor_id,
+        identification_mark1=s.identification_mark1,
+        identification_mark2=s.identification_mark2,
+        photo_url=s.photo_url,
+    )
 
 
 # ── Dashboard ─────────────────────────────────────────
@@ -105,8 +164,72 @@ def get_stats(db: Session = Depends(get_db), current_user: User = Depends(admin_
     return DashboardStats(
         total_students=db.query(Student).count(),
         total_teachers=db.query(Teacher).count(),
-        total_courses=db.query(Course).count()
+        total_courses=db.query(Course).count(),
+        total_sections=db.query(Section).count(),
     )
+
+
+# ── Sections ─────────────────────────────────────────
+
+@router.get("/sections")
+def list_sections(
+    branch_code: str = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required),
+):
+    """List all sections, optionally filtered by branch code."""
+    query = db.query(Section)
+    if branch_code:
+        query = query.filter(Section.branch_code == branch_code)
+    sections = query.all()
+    result = []
+    for sec in sections:
+        count = db.query(Student).filter(Student.section_id == sec.id).count()
+        result.append(SectionOut(
+            id=sec.id, name=sec.name,
+            branch_code=sec.branch_code, year=sec.year,
+            student_count=count
+        ))
+    return result
+
+
+@router.get("/sections/{section_id}/students")
+def section_students(
+    section_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required),
+):
+    """List all students in a specific section."""
+    section = db.query(Section).filter(Section.id == section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+    students = (
+        db.query(Student)
+        .filter(Student.section_id == section_id)
+        .options(joinedload(Student.user), joinedload(Student.section))
+        .all()
+    )
+    return [_build_student_out(s) for s in students]
+
+
+@router.put("/students/{student_id}/section")
+def change_student_section(
+    student_id: int,
+    section_id: int = Query(..., description="Target section ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required),
+):
+    """Admin override: move a student to a different section."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    section = db.query(Section).filter(Section.id == section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+    student.section_id = section_id
+    db.commit()
+    logger.info("Admin %s moved student %d to section %s", current_user.username, student_id, section.name)
+    return {"message": f"Student moved to section {section.name}"}
 
 
 # ── Students ──────────────────────────────────────────
@@ -115,31 +238,41 @@ def get_stats(db: Session = Depends(get_db), current_user: User = Depends(admin_
 def list_students(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    branch_code: str = Query(None),
+    section_id: int = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(admin_required),
 ):
-    students = (
+    query = (
         db.query(Student)
-        .options(joinedload(Student.user))
-        .offset(skip).limit(limit)
-        .all()
+        .options(joinedload(Student.user), joinedload(Student.section))
     )
-    return [
-        StudentOut(
-            id=s.id, user_id=s.user_id, username=s.user.username,
-            roll_number=s.roll_number, branch_code=s.branch_code,
-            first_name=s.first_name, last_name=s.last_name, dob=s.dob,
-            email=s.email, phone=s.phone, address=s.address,
-            enrollment_date=s.enrollment_date
-        ) for s in students
-    ]
+    if branch_code:
+        query = query.filter(Student.branch_code == branch_code)
+    if section_id:
+        query = query.filter(Student.section_id == section_id)
+    students = query.offset(skip).limit(limit).all()
+    return [_build_student_out(s) for s in students]
 
 
 @router.post("/students", status_code=status.HTTP_201_CREATED)
 def create_student(data: StudentCreate, db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    # Build optional fields dict
+    optional_fields = {}
+    for field in [
+        "gender", "email", "phone", "address", "father_name",
+        "blood_group", "religion", "nationality", "admission_category",
+        "category", "area", "cet_qualified", "rank",
+        "mentor_name", "mentor_id", "identification_mark1", "identification_mark2",
+        "current_year", "current_semester",
+    ]:
+        value = getattr(data, field, None)
+        if value is not None:
+            optional_fields[field] = value
+
     roll_number = _create_student_with_profile(
         db, data.first_name, data.last_name, data.dob, data.branch_code,
-        email=data.email, phone=data.phone, address=data.address,
+        **optional_fields,
     )
     db.commit()
     logger.info("Admin %s created student %s", current_user.username, roll_number)
@@ -342,6 +475,7 @@ def list_enrollments(db: Session = Depends(get_db), current_user: User = Depends
         "id": e.id,
         "student_id": e.student_id,
         "student_name": f"{e.student.first_name} {e.student.last_name}",
+        "roll_number": e.student.roll_number,
         "course_id": e.course_id,
         "course_name": e.course.name,
         "course_code": e.course.code,

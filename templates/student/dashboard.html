@@ -60,7 +60,6 @@
                     Minimum 8 characters, must include letters and numbers.
                 </p>
                 <form id="pwdForm">
-                    <div class="form-group"><label>Current Password</label><input type="password" id="old_pwd" required></div>
                     <div class="form-group"><label>New Password</label><input type="password" id="new_pwd" required minlength="8"></div>
                     <div class="form-group"><label>Confirm Password</label><input type="password" id="confirm_pwd" required minlength="8"></div>
                     <button type="submit" class="btn btn-primary">Change Password</button>
@@ -136,7 +135,6 @@
             const res = await api('/auth/change-password', {
                 method: 'POST',
                 body: JSON.stringify({
-                    old_password: document.getElementById('old_pwd').value,
                     new_password: new_pwd
                 })
             });

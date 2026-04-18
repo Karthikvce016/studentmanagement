@@ -72,38 +72,27 @@ async function openModal(id, opts = {}) {
             const teachers = await tRes.json();
             const courses = await cRes.json();
 
-            if (opts.preTeacherId) {
-                // Pre-select and lock the teacher
-                const tSel = document.getElementById('a_teacher');
-                tSel.style.display = 'none';
-                let locked = document.getElementById('a_teacher_locked');
-                if (!locked) {
-                    locked = document.createElement('div');
-                    locked.id = 'a_teacher_locked';
-                    locked.className = 'ss-input';
-                    locked.style.background = '#f1f5f9';
-                    locked.style.cursor = 'default';
-                    tSel.parentNode.insertBefore(locked, tSel.nextSibling);
-                }
-                locked.textContent = `[${opts.preTeacherId}] ${opts.teacherName}`;
-                locked.style.display = '';
-                tSel.value = opts.preTeacherId;
-                // Destroy any SearchSelect cache for this so it doesn't interfere
-                if (SearchSelect._cache['a_teacher']) {
-                    SearchSelect._cache['a_teacher'].input.style.display = 'none';
-                }
-            } else {
-                // Normal: show searchable dropdown
-                const locked = document.getElementById('a_teacher_locked');
-                if (locked) locked.style.display = 'none';
-                SearchSelect.populate('a_teacher',
-                    teachers.map(t => ({ value: t.id, label: `${t.first_name} ${t.last_name}`, sub: `${t.department || 'No Dept'}` }))
-                );
-            }
+            const teacherItems = teachers.map(t => ({
+                value: t.id,
+                label: `${t.first_name} ${t.last_name}`,
+                sub: `${t.department || 'No Dept'}`
+            }));
+            const courseItems = courses.map(c => ({
+                value: c.id,
+                label: `${c.code} — ${c.name}`,
+                sub: `${c.credits} credits`
+            }));
 
-            SearchSelect.populate('a_course',
-                courses.map(c => ({ value: c.id, label: `${c.code} — ${c.name}`, sub: `${c.credits} credits` }))
-            );
+            SearchSelect.populate('a_teacher', teacherItems);
+            SearchSelect.populate('a_course', courseItems);
+            SearchSelect.unlock('a_teacher');
+            SearchSelect.unlock('a_course');
+            if (opts.preTeacherId) {
+                SearchSelect.lock('a_teacher', opts.preTeacherId, opts.teacherName);
+            }
+            if (opts.preCourseId) {
+                SearchSelect.lock('a_course', opts.preCourseId, opts.courseName);
+            }
         }
     }
     if (id === 'enrollModal') {
@@ -123,6 +112,18 @@ async function openModal(id, opts = {}) {
 
 async function assignCourseForTeacher(teacherId, teacherName) {
     await openModal('assignModal', { preTeacherId: teacherId, teacherName });
+}
+
+async function assignTeacherForCourse(courseId, courseName) {
+    await openModal('assignModal', { preCourseId: courseId, courseName });
+}
+
+async function assignCourseFromButton(button) {
+    await assignCourseForTeacher(button.dataset.teacherId, button.dataset.teacherName);
+}
+
+async function assignTeacherFromButton(button) {
+    await assignTeacherForCourse(button.dataset.courseId, button.dataset.courseName);
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -163,14 +164,16 @@ const SearchSelect = {
         list.className = 'ss-list';
         wrapper.appendChild(list);
 
-        this._cache[selectId] = { input, list, sel, items: [] };
+        this._cache[selectId] = { input, list, sel, items: [], locked: false };
 
         input.addEventListener('focus', () => {
+            if (this._cache[selectId].locked) return;
             list.classList.add('open');
             this._render(selectId, '');
         });
 
         input.addEventListener('input', () => {
+            if (this._cache[selectId].locked) return;
             list.classList.add('open');
             sel.value = '';  // Clear selection while typing
             this._render(selectId, input.value);
@@ -188,11 +191,42 @@ const SearchSelect = {
         const c = this._cache[selectId];
         if (!c) return;
         c.items = items;
+        this.unlock(selectId);
         c.input.value = '';
         c.sel.innerHTML = '<option value=""></option>' +
             items.map(i => `<option value="${i.value}"></option>`).join('');
         c.sel.value = '';
         this._render(selectId, '');
+    },
+
+    /** Select a value in both the real <select> and the visible search input. */
+    setValue(selectId, value, label = null) {
+        const c = this._cache[selectId];
+        if (!c) return;
+        const v = String(value);
+        const item = c.items.find(i => String(i.value) === v);
+        c.sel.value = v;
+        c.input.value = `[${v}] ${label || (item ? item.label : v)}`;
+    },
+
+    /** Lock a preselected value while still keeping the hidden <select> submitted/readable. */
+    lock(selectId, value, label = null) {
+        const c = this._cache[selectId];
+        if (!c) return;
+        this.setValue(selectId, value, label);
+        c.locked = true;
+        c.input.readOnly = true;
+        c.input.classList.add('ss-input-locked');
+        c.list.classList.remove('open');
+    },
+
+    /** Return the searchable input to normal interactive mode. */
+    unlock(selectId) {
+        const c = this._cache[selectId];
+        if (!c) return;
+        c.locked = false;
+        c.input.readOnly = false;
+        c.input.classList.remove('ss-input-locked');
     },
 
     /** Render filtered items into the dropdown list. */
