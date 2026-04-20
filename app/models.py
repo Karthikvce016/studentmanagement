@@ -1,15 +1,28 @@
-"""SQLAlchemy ORM models — all tables defined in one file for simplicity."""
+"""SQLAlchemy ORM models for the student management system."""
+
+from datetime import datetime
+import enum
 
 from sqlalchemy import (
-    Column, Integer, String, Boolean, Date, Float,
-    ForeignKey, Enum, UniqueConstraint
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
+
 from app.database import Base
-import enum
 
 
 # ── Enums ──────────────────────────────────────────────
+
 
 class AttendanceStatus(str, enum.Enum):
     PRESENT = "PRESENT"
@@ -21,9 +34,9 @@ MAX_SUB_PERIODS = 4
 
 
 class AssessmentType(str, enum.Enum):
-    INTERNAL = "INTERNAL"      # 2 per course (max 30 marks each)
-    QUIZ = "QUIZ"              # 3 per course (max 5 marks each)
-    ASSIGNMENT = "ASSIGNMENT"  # 3 per course (max 5 marks each)
+    INTERNAL = "INTERNAL"
+    QUIZ = "QUIZ"
+    ASSIGNMENT = "ASSIGNMENT"
 
 
 class Gender(str, enum.Enum):
@@ -58,16 +71,18 @@ class Area(str, enum.Enum):
 
 # ── Role ───────────────────────────────────────────────
 
+
 class Role(Base):
     __tablename__ = "roles"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(50), unique=True, nullable=False)  # ADMIN, TEACHER, STUDENT
+    name = Column(String(50), unique=True, nullable=False)
 
     users = relationship("User", back_populates="role")
 
 
 # ── User (central auth table) ─────────────────────────
+
 
 class User(Base):
     __tablename__ = "users"
@@ -86,32 +101,33 @@ class User(Base):
 
 # ── Section ────────────────────────────────────────────
 
+
 class Section(Base):
-    """Sections like CSE-A, CSE-B. First 65 roll serials → A, next 65 → B, etc."""
     __tablename__ = "sections"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(10), nullable=False)           # "A", "B", "C"
-    branch_code = Column(String(10), nullable=False)    # "733" for CSE
-    year = Column(Integer, nullable=False)              # Joining year, e.g. 2024
+    name = Column(String(10), nullable=False)
+    branch_code = Column(String(10), nullable=False)
+    year = Column(Integer, nullable=False)
 
     __table_args__ = (UniqueConstraint("name", "branch_code", "year"),)
 
     students = relationship("Student", back_populates="section")
+    course_offerings = relationship("CourseOffering", back_populates="section")
 
 
 # ── Student ────────────────────────────────────────────
+
 
 class Student(Base):
     __tablename__ = "students"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    roll_number = Column(String(20), unique=True, nullable=True, index=True)  # e.g. 1602-24-733-016
-    branch_code = Column(String(10), nullable=True)   # e.g. 733 for CSE
+    roll_number = Column(String(20), unique=True, nullable=True, index=True)
+    branch_code = Column(String(10), nullable=True)
     section_id = Column(Integer, ForeignKey("sections.id"), nullable=True)
 
-    # Basic Info
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     gender = Column(Enum(Gender), nullable=True)
@@ -121,43 +137,38 @@ class Student(Base):
     address = Column(String(500))
     photo_url = Column(String(500), nullable=True)
 
-    # Academic Info
-    enrollment_date = Column(Date)                     # Date of Joining
-    current_year = Column(Integer, nullable=True)      # e.g. 2
-    current_semester = Column(Integer, nullable=True)  # e.g. 3
+    enrollment_date = Column(Date)
+    current_year = Column(Integer, nullable=True)
+    current_semester = Column(Integer, nullable=True)
 
-    # Entrance Exam & Rank
-    cet_qualified = Column(String(100), nullable=True)  # e.g. "EAPCET-2024"
+    cet_qualified = Column(String(100), nullable=True)
     rank = Column(Integer, nullable=True)
 
-    # Personal Details
-    blood_group = Column(String(10), nullable=True)    # e.g. "O+", "A-"
+    blood_group = Column(String(10), nullable=True)
     religion = Column(String(50), nullable=True)
     nationality = Column(String(50), nullable=True, default="Indian")
 
-    # Category & Admission
     admission_category = Column(Enum(AdmissionCategory), nullable=True)
-    category = Column(Enum(Category), nullable=True)   # EWS, OC, BC, SC, ST
-    area = Column(Enum(Area), nullable=True)           # Rural / Urban
+    category = Column(Enum(Category), nullable=True)
+    area = Column(Enum(Area), nullable=True)
 
-    # Mentor
     mentor_name = Column(String(200), nullable=True)
     mentor_id = Column(String(50), nullable=True)
 
-    # Identification Marks
     identification_mark1 = Column(String(300), nullable=True)
     identification_mark2 = Column(String(300), nullable=True)
 
-    # Father's info
     father_name = Column(String(200), nullable=True)
 
     user = relationship("User", back_populates="student")
     section = relationship("Section", back_populates="students")
     enrollments = relationship("Enrollment", back_populates="student", cascade="all, delete-orphan")
     marks = relationship("Mark", back_populates="student", cascade="all, delete-orphan")
+    password_reset_audits = relationship("PasswordResetAudit", back_populates="student")
 
 
 # ── Teacher ────────────────────────────────────────────
+
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -173,9 +184,12 @@ class Teacher(Base):
 
     user = relationship("User", back_populates="teacher")
     teacher_courses = relationship("TeacherCourse", back_populates="teacher", cascade="all, delete-orphan")
+    attendance_audits = relationship("AttendanceAudit", back_populates="teacher")
+    mark_audits = relationship("MarkAudit", back_populates="teacher")
 
 
-# ── Course ─────────────────────────────────────────────
+# ── Course Catalog ─────────────────────────────────────
+
 
 class Course(Base):
     __tablename__ = "courses"
@@ -186,44 +200,81 @@ class Course(Base):
     credits = Column(Integer, default=3)
     department = Column(String(200))
 
-    teacher_courses = relationship("TeacherCourse", back_populates="course", cascade="all, delete-orphan")
-    enrollments = relationship("Enrollment", back_populates="course", cascade="all, delete-orphan")
-    assessments = relationship("Assessment", back_populates="course", cascade="all, delete-orphan")
+    offerings = relationship("CourseOffering", back_populates="course", cascade="all, delete-orphan")
 
 
-# ── TeacherCourse (many-to-many: teacher ↔ course) ────
+# ── Course Offering ────────────────────────────────────
+
+
+class CourseOffering(Base):
+    __tablename__ = "course_offerings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    academic_year = Column(Integer, nullable=False)
+    semester = Column(Integer, nullable=False)
+    section_id = Column(Integer, ForeignKey("sections.id"), nullable=True)
+    capacity = Column(Integer, default=65)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    is_active = Column(Boolean, default=True)
+
+    __table_args__ = (
+        UniqueConstraint("course_id", "academic_year", "semester", "section_id"),
+        Index("ix_course_offerings_year_semester", "academic_year", "semester"),
+        Index("ix_course_offerings_section_id", "section_id"),
+    )
+
+    course = relationship("Course", back_populates="offerings")
+    section = relationship("Section", back_populates="course_offerings")
+    teacher_courses = relationship("TeacherCourse", back_populates="course_offering", cascade="all, delete-orphan")
+    enrollments = relationship("Enrollment", back_populates="course_offering", cascade="all, delete-orphan")
+    assessments = relationship("Assessment", back_populates="course_offering", cascade="all, delete-orphan")
+
+
+# ── TeacherCourse (teacher ↔ course offering) ─────────
+
 
 class TeacherCourse(Base):
     __tablename__ = "teacher_courses"
 
     id = Column(Integer, primary_key=True, index=True)
     teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False)
-    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    offering_id = Column(Integer, ForeignKey("course_offerings.id", ondelete="CASCADE"), nullable=False)
 
-    __table_args__ = (UniqueConstraint("teacher_id", "course_id"),)
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "offering_id"),
+        Index("ix_teacher_courses_offering_id", "offering_id"),
+    )
 
     teacher = relationship("Teacher", back_populates="teacher_courses")
-    course = relationship("Course", back_populates="teacher_courses")
+    course_offering = relationship("CourseOffering", back_populates="teacher_courses")
 
 
-# ── Enrollment (many-to-many: student ↔ course) ───────
+# ── Enrollment (student ↔ course offering) ────────────
+
 
 class Enrollment(Base):
     __tablename__ = "enrollments"
 
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
-    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    offering_id = Column(Integer, ForeignKey("course_offerings.id", ondelete="CASCADE"), nullable=False)
     enrolled_date = Column(Date)
 
-    __table_args__ = (UniqueConstraint("student_id", "course_id"),)
+    __table_args__ = (
+        UniqueConstraint("student_id", "offering_id"),
+        Index("ix_enrollments_offering_id", "offering_id"),
+    )
 
     student = relationship("Student", back_populates="enrollments")
-    course = relationship("Course", back_populates="enrollments")
+    course_offering = relationship("CourseOffering", back_populates="enrollments")
     attendances = relationship("Attendance", back_populates="enrollment", cascade="all, delete-orphan")
+    attendance_audits = relationship("AttendanceAudit", back_populates="enrollment")
 
 
 # ── Attendance ─────────────────────────────────────────
+
 
 class Attendance(Base):
     __tablename__ = "attendance"
@@ -231,21 +282,20 @@ class Attendance(Base):
     id = Column(Integer, primary_key=True, index=True)
     enrollment_id = Column(Integer, ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False)
     date = Column(Date, nullable=False)
-    period = Column(Integer, nullable=False)      # 1-7 standard periods
-    sub_period = Column(Integer, nullable=False, default=1)  # 1 for normal classes, >1 for split/lab hours
+    period = Column(Integer, nullable=False)
+    sub_period = Column(Integer, nullable=False, default=1)
     status = Column(Enum(AttendanceStatus), nullable=False)
 
-    __table_args__ = (UniqueConstraint("enrollment_id", "date", "period", "sub_period"),)
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "date", "period", "sub_period"),
+        Index("ix_attendance_date_period_sub_period", "date", "period", "sub_period"),
+    )
 
     enrollment = relationship("Enrollment", back_populates="attendances")
 
 
 # ── Assessment ─────────────────────────────────────────
 
-# Limits per course:
-#   INTERNAL  → max 2 (default max_marks: 30)
-#   QUIZ      → max 3 (default max_marks: 5)
-#   ASSIGNMENT→ max 3 (default max_marks: 5)
 
 ASSESSMENT_LIMITS = {
     AssessmentType.INTERNAL: 2,
@@ -264,19 +314,24 @@ class Assessment(Base):
     __tablename__ = "assessments"
 
     id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(200), nullable=False)          # e.g. "Int1", "Quiz2", "Asst3"
+    offering_id = Column(Integer, ForeignKey("course_offerings.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(200), nullable=False)
     type = Column(Enum(AssessmentType), nullable=False)
     max_marks = Column(Float, nullable=False)
     date = Column(Date)
 
-    __table_args__ = (UniqueConstraint("course_id", "type", "name"),)
+    __table_args__ = (
+        UniqueConstraint("offering_id", "type", "name"),
+        Index("ix_assessments_offering_id", "offering_id"),
+    )
 
-    course = relationship("Course", back_populates="assessments")
+    course_offering = relationship("CourseOffering", back_populates="assessments")
     marks = relationship("Mark", back_populates="assessment", cascade="all, delete-orphan")
+    mark_audits = relationship("MarkAudit", back_populates="assessment")
 
 
 # ── Mark ───────────────────────────────────────────────
+
 
 class Mark(Base):
     __tablename__ = "marks"
@@ -286,55 +341,98 @@ class Mark(Base):
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
     marks_obtained = Column(Float, nullable=False)
 
-    __table_args__ = (UniqueConstraint("assessment_id", "student_id"),)
+    __table_args__ = (
+        UniqueConstraint("assessment_id", "student_id"),
+        Index("ix_marks_student_id", "student_id"),
+    )
 
     assessment = relationship("Assessment", back_populates="marks")
     student = relationship("Student", back_populates="marks")
 
 
+# ── Audit Tables ───────────────────────────────────────
+
+
+class PasswordResetAudit(Base):
+    __tablename__ = "password_reset_audits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    admin_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    reset_value_rule = Column(String(100), nullable=False)
+    reset_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    admin_user = relationship("User")
+    student = relationship("Student", back_populates="password_reset_audits")
+
+
+class AttendanceAudit(Base):
+    __tablename__ = "attendance_audits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
+    enrollment_id = Column(Integer, ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False)
+    action = Column(String(20), nullable=False)
+    date = Column(Date, nullable=False)
+    period = Column(Integer, nullable=False)
+    sub_period = Column(Integer, nullable=False)
+    old_status = Column(Enum(AttendanceStatus), nullable=True)
+    new_status = Column(Enum(AttendanceStatus), nullable=False)
+    changed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (Index("ix_attendance_audits_changed_at", "changed_at"),)
+
+    teacher = relationship("Teacher", back_populates="attendance_audits")
+    enrollment = relationship("Enrollment", back_populates="attendance_audits")
+
+
+class MarkAudit(Base):
+    __tablename__ = "mark_audits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
+    assessment_id = Column(Integer, ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    old_marks = Column(Float, nullable=True)
+    new_marks = Column(Float, nullable=False)
+    changed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (Index("ix_mark_audits_changed_at", "changed_at"),)
+
+    teacher = relationship("Teacher", back_populates="mark_audits")
+    assessment = relationship("Assessment", back_populates="mark_audits")
+    student = relationship("Student")
+
+
 # ── Grade Computation Helpers ──────────────────────────
 
-# Sessional marks (out of 40) = computed from best internal + quizzes + assignments
-# Grade points mapping (VCE standard 10-point scale)
+
 GRADE_MAP = [
     (90, "A+", 10),
-    (80, "A",  9),
-    (70, "B",  8),
-    (60, "C",  7),
-    (50, "D",  6),
-    (40, "E",  5),
-    (0,  "F",  0),
+    (80, "A", 9),
+    (70, "B", 8),
+    (60, "C", 7),
+    (50, "D", 6),
+    (40, "E", 5),
+    (0, "F", 0),
 ]
 
 
 def compute_sessional(marks_by_type: dict) -> tuple[float, float]:
-    """
-    Compute sessional marks (out of 40) from raw assessment marks.
-    
-    VCE formula (approximate):
-    - Best of 2 internals → scaled to 20 marks
-    - Sum of 3 quizzes → scaled to 10 marks
-    - Sum of 3 assignments → scaled to 10 marks
-    - Total sessional = 40
-    
-    Returns: (sessional_obtained, sessional_max=40)
-    """
+    """Compute sessional marks out of 40 from assessment groups."""
     internals = marks_by_type.get(AssessmentType.INTERNAL, [])
     quizzes = marks_by_type.get(AssessmentType.QUIZ, [])
     assignments = marks_by_type.get(AssessmentType.ASSIGNMENT, [])
 
-    # Best internal out of 30 → scaled to 20
     if internals:
         best_internal = max(internals)
         internal_score = (best_internal / 30) * 20
     else:
         internal_score = 0
 
-    # Sum of quizzes out of 15 → scaled to 10
     quiz_total = sum(quizzes)
     quiz_score = (quiz_total / 15) * 10 if quizzes else 0
 
-    # Sum of assignments out of 15 → scaled to 10
     assignment_total = sum(assignments)
     assignment_score = (assignment_total / 15) * 10 if assignments else 0
 

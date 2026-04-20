@@ -10,7 +10,7 @@
     <nav class="nav-bar">
         <span class="brand">Teacher Portal</span>
         <div class="nav-links">
-            <a href="#" class="active" onclick="showSection('courses', event)">My Courses</a>
+            <a href="#" class="active" onclick="showSection('offerings', event)">My Offerings</a>
             <a href="#" onclick="logout()">Logout</a>
         </div>
     </nav>
@@ -18,27 +18,38 @@
     <main class="container">
         <div id="alert" class="alert"></div>
 
-        <section id="section-courses">
+        <section id="section-offerings">
             <div class="page-header">
                 <div>
                     <p class="eyebrow">Teacher Portal</p>
-                    <h1>My Courses</h1>
+                    <h1>My Offerings</h1>
                 </div>
             </div>
-            <p class="helper-text">Open a course to manage students, attendance, assessments, and marks.</p>
-            <div id="courses-list" class="courses-grid"></div>
-            <div id="no-courses" class="panel" style="display:none;">
-                <p class="muted">No courses assigned yet.</p>
+            <p class="helper-text">Open an offering to manage students, attendance, assessments, and marks.</p>
+            <div id="offerings-list" class="courses-grid"></div>
+            <div id="no-offerings" class="panel" style="display:none;">
+                <p class="muted">No offerings assigned yet.</p>
             </div>
         </section>
 
         <section id="section-detail" style="display:none;">
             <div class="page-header">
                 <div>
-                    <p class="eyebrow">Course Workspace</p>
-                    <h1 id="detail-title">Course</h1>
+                    <p class="eyebrow">Offering Workspace</p>
+                    <h1 id="detail-title">Offering</h1>
                 </div>
-                <button class="btn btn-outline" onclick="showSection('courses', event)">Back to Courses</button>
+                <button class="btn btn-outline" onclick="showSection('offerings', event)">Back to Offerings</button>
+            </div>
+
+            <div class="panel" style="margin-bottom:16px;">
+                <div class="inline-form">
+                    <div class="form-group">
+                        <label>Section Filter</label>
+                        <select id="detail-section-filter">
+                            <option value="">All Sections</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div class="tabs">
@@ -73,7 +84,7 @@
                             <input type="number" id="att-sub-period" min="1" max="4" value="1">
                         </div>
                     </div>
-                    <p class="attendance-note">Checked means present. Changes save automatically for the selected date and slot.</p>
+                    <p class="attendance-note">Checked means present. Changes save automatically for the selected slot.</p>
                     <div id="att-form" style="margin-top:12px;"></div>
                 </div>
 
@@ -134,35 +145,40 @@
     <script>
         requireAuth('TEACHER');
 
-        let currentCourseId = null;
+        let currentOfferingId = null;
         let currentAssessmentId = null;
         let currentAttendanceStudents = [];
+        let currentSectionId = '';
         let attendanceHydrationRequest = 0;
         const assessmentMax = { INTERNAL: 30, QUIZ: 5, ASSIGNMENT: 5 };
 
         function showSection(name, e) {
             if (e) e.preventDefault();
-            document.getElementById('section-courses').style.display = name === 'courses' ? 'block' : 'none';
+            document.getElementById('section-offerings').style.display = name === 'offerings' ? 'block' : 'none';
             document.getElementById('section-detail').style.display = name === 'detail' ? 'block' : 'none';
-            if (name === 'courses') loadCourses();
+            if (name === 'offerings') loadOfferings();
         }
 
         function switchTab(btn, name) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             btn.classList.add('active');
-            document.querySelectorAll('#section-detail .tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#section-detail .tab-content').forEach(tab => tab.classList.remove('active'));
             document.getElementById('sub-' + name).classList.add('active');
             if (name === 'students') loadStudents();
             if (name === 'attendance') loadAttendanceTab();
             if (name === 'assessments') loadAssessments();
         }
 
-        async function loadCourses() {
+        function selectedSectionQuery() {
+            return currentSectionId ? `?section_id=${encodeURIComponent(currentSectionId)}` : '';
+        }
+
+        async function loadOfferings() {
             const res = await api('/teacher/courses');
             if (!res) return;
             const data = await res.json();
-            const listEl = document.getElementById('courses-list');
-            const emptyEl = document.getElementById('no-courses');
+            const listEl = document.getElementById('offerings-list');
+            const emptyEl = document.getElementById('no-offerings');
 
             if (data.length === 0) {
                 listEl.style.display = 'none';
@@ -172,33 +188,52 @@
 
             emptyEl.style.display = 'none';
             listEl.style.display = 'grid';
-            listEl.innerHTML = data.map(c => `
-                <article class="course-card" data-course-id="${esc(c.id)}" data-course-name="${esc(c.name)}" onclick="openCourseFromCard(this)">
-                    <span class="course-card-code">${esc(c.code)}</span>
-                    <h2 class="course-card-name">${esc(c.name)}</h2>
-                    <p class="course-card-meta">${esc(c.credits)} credits · ${esc(c.department) || 'Department not set'}</p>
+            listEl.innerHTML = data.map(offering => `
+                <article class="course-card" data-offering-id="${esc(offering.id)}" data-offering-label="${esc(offering.label)}" onclick="openOfferingFromCard(this)">
+                    <span class="course-card-code">${esc(offering.code)}</span>
+                    <h2 class="course-card-name">${esc(offering.name)}</h2>
+                    <p class="course-card-meta">${esc(offering.label)}</p>
+                    <p class="course-card-meta">${esc(offering.student_count)} students</p>
                 </article>
             `).join('');
         }
 
-        function openCourseFromCard(card) {
-            currentCourseId = parseInt(card.dataset.courseId);
-            document.getElementById('detail-title').textContent = card.dataset.courseName;
+        async function openOfferingFromCard(card) {
+            currentOfferingId = parseInt(card.dataset.offeringId, 10);
+            document.getElementById('detail-title').textContent = card.dataset.offeringLabel;
             showSection('detail');
+            await loadSectionFilter();
             document.querySelector('#section-detail .tab').click();
         }
 
+        async function loadSectionFilter() {
+            if (!currentOfferingId) return;
+            const res = await api(`/teacher/courses/${currentOfferingId}/sections`);
+            if (!res) return;
+            const sections = await res.json();
+            const select = document.getElementById('detail-section-filter');
+            select.innerHTML = ['<option value="">All Sections</option>']
+                .concat(sections.map(section => `<option value="${esc(section.section_id || '')}">${esc(section.branch_code || '')} ${esc(section.section_name || 'Unassigned')} (${esc(section.student_count)})</option>`))
+                .join('');
+            if (currentSectionId) {
+                select.value = currentSectionId;
+            } else {
+                select.value = '';
+            }
+        }
+
         async function loadStudents() {
-            const res = await api(`/teacher/courses/${currentCourseId}/students`);
+            if (!currentOfferingId) return;
+            const res = await api(`/teacher/courses/${currentOfferingId}/students${selectedSectionQuery()}`);
             if (!res) return;
             const data = await res.json();
             currentAttendanceStudents = data;
-            document.getElementById('detail-students').innerHTML = data.map(s => `
+            document.getElementById('detail-students').innerHTML = data.map(student => `
                 <tr>
-                    <td><strong>${esc(s.roll_number || s.student_id)}</strong></td>
-                    <td>${esc(s.first_name)} ${esc(s.last_name)}</td>
-                    <td>${esc(s.section) || '-'}</td>
-                    <td>${esc(s.email) || '-'}</td>
+                    <td><strong>${esc(student.roll_number || student.student_id)}</strong></td>
+                    <td>${esc(student.first_name)} ${esc(student.last_name)}</td>
+                    <td>${esc(student.section) || '-'}</td>
+                    <td>${esc(student.email) || '-'}</td>
                 </tr>
             `).join('') || '<tr><td colspan="4">No students enrolled.</td></tr>';
 
@@ -219,33 +254,33 @@
         }
 
         function renderAttendanceForm(rows = []) {
-            const rowMap = new Map(rows.map(r => [r.student_id, r.status]));
+            const rowMap = new Map(rows.map(row => [row.student_id, row.status]));
             const form = document.getElementById('att-form');
             if (!currentAttendanceStudents.length) {
                 form.innerHTML = '<p class="muted">No students enrolled.</p>';
                 return;
             }
 
-            form.innerHTML = currentAttendanceStudents.map(s => {
-                const status = rowMap.get(s.student_id) || 'PRESENT';
+            form.innerHTML = currentAttendanceStudents.map(student => {
+                const status = rowMap.get(student.student_id) || 'PRESENT';
                 const checked = status !== 'ABSENT';
                 const meta = [
-                    s.section ? `Section ${esc(s.section)}` : null,
-                    s.email ? esc(s.email) : null
+                    student.section ? `Section ${esc(student.section)}` : null,
+                    student.email ? esc(student.email) : null
                 ].filter(Boolean).join(' · ');
 
                 return `
                     <div class="entry-row attendance-entry">
                         <div class="attendance-student">
-                            <span><strong>${esc(s.roll_number || s.student_id)}</strong> ${esc(s.first_name)} ${esc(s.last_name)}</span>
+                            <span><strong>${esc(student.roll_number || student.student_id)}</strong> ${esc(student.first_name)} ${esc(student.last_name)}</span>
                             <div class="attendance-meta">${meta || 'Ready to mark'}</div>
                         </div>
                         <div class="attendance-actions">
                             <label class="attendance-toggle ${checked ? '' : 'is-absent'}">
-                                <input type="checkbox" class="attendance-checkbox" data-student="${esc(s.student_id)}" ${checked ? 'checked' : ''} onchange="toggleAttendance(this)">
+                                <input type="checkbox" class="attendance-checkbox" data-student="${esc(student.student_id)}" ${checked ? 'checked' : ''} onchange="toggleAttendance(this)">
                                 <span class="attendance-toggle-text">${checked ? 'Present' : 'Absent'}</span>
                             </label>
-                            <span class="attendance-save-status" data-attendance-status="${esc(s.student_id)}"></span>
+                            <span class="attendance-save-status" data-attendance-status="${esc(student.student_id)}"></span>
                         </div>
                     </div>
                 `;
@@ -268,7 +303,7 @@
         }
 
         async function loadAttendanceSlot() {
-            if (!currentCourseId) return;
+            if (!currentOfferingId) return;
             const slot = getAttendanceSlot();
             if (!slot.date) {
                 renderAttendanceForm();
@@ -282,7 +317,8 @@
                 period: String(slot.period),
                 sub_period: String(slot.sub_period)
             });
-            const res = await api(`/teacher/attendance/${currentCourseId}/grid?${params.toString()}`);
+            if (currentSectionId) params.set('section_id', currentSectionId);
+            const res = await api(`/teacher/attendance/${currentOfferingId}/grid?${params.toString()}`);
             if (!res || requestId !== attendanceHydrationRequest) return;
             const rows = await res.json();
             if (requestId !== attendanceHydrationRequest) return;
@@ -290,15 +326,16 @@
         }
 
         async function loadAttendanceSummary() {
-            const res = await api(`/teacher/attendance/${currentCourseId}`);
+            if (!currentOfferingId) return;
+            const res = await api(`/teacher/attendance/${currentOfferingId}${selectedSectionQuery()}`);
             if (!res) return;
             const data = await res.json();
-            document.getElementById('att-summary').innerHTML = data.map(s => `
+            document.getElementById('att-summary').innerHTML = data.map(student => `
                 <tr>
-                    <td>${esc(s.student_name)}</td>
-                    <td>${esc(s.total_periods)}</td>
-                    <td>${esc(s.present)}</td>
-                    <td><span class="badge ${s.percentage >= 75 ? 'badge-success' : 'badge-danger'}">${esc(s.percentage)}%</span></td>
+                    <td>${esc(student.student_name)}</td>
+                    <td>${esc(student.total_periods)}</td>
+                    <td>${esc(student.present)}</td>
+                    <td><span class="badge ${student.percentage >= 75 ? 'badge-success' : 'badge-danger'}">${esc(student.percentage)}%</span></td>
                 </tr>
             `).join('') || '<tr><td colspan="4">No attendance records.</td></tr>';
         }
@@ -326,7 +363,7 @@
             const res = await api('/teacher/attendance', {
                 method: 'POST',
                 body: JSON.stringify({
-                    course_id: currentCourseId,
+                    offering_id: currentOfferingId,
                     date: slot.date,
                     period: slot.period,
                     sub_period: slot.sub_period,
@@ -356,16 +393,17 @@
         }
 
         async function loadAssessments() {
-            const res = await api(`/teacher/assessments/${currentCourseId}`);
+            if (!currentOfferingId) return;
+            const res = await api(`/teacher/assessments/${currentOfferingId}`);
             if (!res) return;
             const data = await res.json();
-            document.getElementById('assessments-table').innerHTML = data.map(a => `
+            document.getElementById('assessments-table').innerHTML = data.map(assessment => `
                 <tr>
-                    <td>${esc(a.name)}</td>
-                    <td><span class="badge badge-info">${esc(a.type)}</span></td>
-                    <td>${esc(a.max_marks)}</td>
-                    <td>${esc(a.date) || '-'}</td>
-                    <td><button class="btn btn-primary btn-sm" data-assessment-id="${esc(a.id)}" data-assessment-name="${esc(a.name)}" data-max-marks="${esc(a.max_marks)}" onclick="openMarksFromButton(this)">Enter Marks</button></td>
+                    <td>${esc(assessment.name)}</td>
+                    <td><span class="badge badge-info">${esc(assessment.type)}</span></td>
+                    <td>${esc(assessment.max_marks)}</td>
+                    <td>${esc(assessment.date) || '-'}</td>
+                    <td><button class="btn btn-primary btn-sm" data-assessment-id="${esc(assessment.id)}" data-assessment-name="${esc(assessment.name)}" data-max-marks="${esc(assessment.max_marks)}" onclick="openMarksFromButton(this)">Enter Marks</button></td>
                 </tr>
             `).join('') || '<tr><td colspan="5">No assessments yet.</td></tr>';
         }
@@ -381,7 +419,7 @@
             const res = await api('/teacher/assessments', {
                 method: 'POST',
                 body: JSON.stringify({
-                    course_id: currentCourseId,
+                    offering_id: currentOfferingId,
                     name: document.getElementById('as_name').value,
                     type,
                     max_marks: assessmentMax[type],
@@ -389,25 +427,33 @@
                 })
             });
             if (!res) return;
-            if (res.ok) { showAlert('alert', 'Assessment created'); loadAssessments(); e.target.reset(); document.getElementById('as_max').value = 30; }
-            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+            if (res.ok) {
+                showAlert('alert', 'Assessment created');
+                loadAssessments();
+                e.target.reset();
+                document.getElementById('as_max').value = 30;
+            } else {
+                const data = await res.json();
+                showAlert('alert', data.detail, 'error');
+            }
         });
 
         function openMarksFromButton(button) {
-            openMarks(parseInt(button.dataset.assessmentId), button.dataset.assessmentName, parseFloat(button.dataset.maxMarks));
+            openMarks(parseInt(button.dataset.assessmentId, 10), button.dataset.assessmentName, parseFloat(button.dataset.maxMarks));
         }
 
         async function openMarks(assessmentId, name, maxMarks) {
             currentAssessmentId = assessmentId;
             document.getElementById('marks-title').textContent = `Enter Marks - ${name} (Max ${maxMarks})`;
 
-            const res = await api(`/teacher/marks/${assessmentId}/grid`);
+            const query = currentSectionId ? `?section_id=${encodeURIComponent(currentSectionId)}` : '';
+            const res = await api(`/teacher/marks/${assessmentId}/grid${query}`);
             if (!res) return;
             const rows = await res.json();
-            document.getElementById('marks-form').innerHTML = rows.map(s => `
+            document.getElementById('marks-form').innerHTML = rows.map(student => `
                 <div class="entry-row">
-                    <span><strong>${esc(s.roll_number || s.student_id)}</strong> ${esc(s.student_name)}</span>
-                    <input type="number" step="0.1" min="0" max="${esc(maxMarks)}" data-student="${esc(s.student_id)}" value="${s.marks_obtained !== null && s.marks_obtained !== undefined ? esc(s.marks_obtained) : ''}" style="width:96px;">
+                    <span><strong>${esc(student.roll_number || student.student_id)}</strong> ${esc(student.student_name)} ${student.section ? `<span class="muted">(${esc(student.section)})</span>` : ''}</span>
+                    <input type="number" step="0.1" min="0" max="${esc(maxMarks)}" data-student="${esc(student.student_id)}" value="${student.marks_obtained !== null && student.marks_obtained !== undefined ? esc(student.marks_obtained) : ''}" style="width:96px;">
                 </div>
             `).join('');
             openModal('marksModal');
@@ -415,29 +461,45 @@
 
         async function submitMarks() {
             const marks = Array.from(document.querySelectorAll('#marks-form input'))
-                .filter(i => i.value !== '')
-                .map(i => ({ student_id: parseInt(i.dataset.student), marks_obtained: parseFloat(i.value) }));
-            if (marks.length === 0) { showAlert('alert', 'Enter at least one mark', 'error'); return; }
+                .filter(input => input.value !== '')
+                .map(input => ({ student_id: parseInt(input.dataset.student, 10), marks_obtained: parseFloat(input.value) }));
+            if (marks.length === 0) {
+                showAlert('alert', 'Enter at least one mark', 'error');
+                return;
+            }
             const res = await api('/teacher/marks', {
                 method: 'POST',
                 body: JSON.stringify({ assessment_id: currentAssessmentId, marks })
             });
             if (!res) return;
-            if (res.ok) { showAlert('alert', 'Marks saved'); closeModal('marksModal'); }
-            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+            if (res.ok) {
+                showAlert('alert', 'Marks saved');
+                closeModal('marksModal');
+            } else {
+                const data = await res.json();
+                showAlert('alert', data.detail, 'error');
+            }
         }
 
-        document.getElementById('att-date').addEventListener('change', () => {
-            if (currentCourseId) loadAttendanceSlot();
-        });
-        document.getElementById('att-period').addEventListener('change', () => {
-            if (currentCourseId) loadAttendanceSlot();
-        });
-        document.getElementById('att-sub-period').addEventListener('change', () => {
-            if (currentCourseId) loadAttendanceSlot();
+        document.getElementById('detail-section-filter').addEventListener('change', async (e) => {
+            currentSectionId = e.target.value;
+            await loadStudents();
+            if (document.getElementById('sub-attendance').classList.contains('active')) {
+                loadAttendanceTab();
+            }
         });
 
-        loadCourses();
+        document.getElementById('att-date').addEventListener('change', () => {
+            if (currentOfferingId) loadAttendanceSlot();
+        });
+        document.getElementById('att-period').addEventListener('change', () => {
+            if (currentOfferingId) loadAttendanceSlot();
+        });
+        document.getElementById('att-sub-period').addEventListener('change', () => {
+            if (currentOfferingId) loadAttendanceSlot();
+        });
+
+        loadOfferings();
     </script>
 </body>
 </html>

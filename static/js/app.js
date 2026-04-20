@@ -67,63 +67,80 @@ function showAlert(id, message, type = 'success') {
 async function openModal(id, opts = {}) {
     document.getElementById(id).classList.add('active');
     if (id === 'assignModal') {
-        const [tRes, cRes] = await Promise.all([api('/admin/teachers'), api('/admin/courses')]);
-        if (tRes && cRes) {
+        const [tRes, oRes] = await Promise.all([api('/admin/teachers'), api('/admin/course-offerings')]);
+        if (tRes && oRes) {
             const teachers = await tRes.json();
-            const courses = await cRes.json();
+            const offerings = await oRes.json();
 
             const teacherItems = teachers.map(t => ({
                 value: t.id,
                 label: `${t.first_name} ${t.last_name}`,
                 sub: `${t.department || 'No Dept'}`
             }));
-            const courseItems = courses.map(c => ({
-                value: c.id,
-                label: `${c.code} — ${c.name}`,
-                sub: `${c.credits} credits`
+            const offeringItems = offerings.map(o => ({
+                value: o.id,
+                label: o.label,
+                sub: `${o.credits} credits`
             }));
 
             SearchSelect.populate('a_teacher', teacherItems);
-            SearchSelect.populate('a_course', courseItems);
+            SearchSelect.populate('a_offering', offeringItems);
             SearchSelect.unlock('a_teacher');
-            SearchSelect.unlock('a_course');
+            SearchSelect.unlock('a_offering');
             if (opts.preTeacherId) {
                 SearchSelect.lock('a_teacher', opts.preTeacherId, opts.teacherName);
             }
-            if (opts.preCourseId) {
-                SearchSelect.lock('a_course', opts.preCourseId, opts.courseName);
+            if (opts.preOfferingId) {
+                SearchSelect.lock('a_offering', opts.preOfferingId, opts.offeringLabel);
             }
         }
     }
     if (id === 'enrollModal') {
-        const [sRes, cRes] = await Promise.all([api('/admin/students'), api('/admin/courses')]);
-        if (sRes && cRes) {
+        const [sRes, oRes] = await Promise.all([api('/admin/students'), api('/admin/course-offerings')]);
+        if (sRes && oRes) {
             const students = await sRes.json();
-            const courses = await cRes.json();
+            const offerings = await oRes.json();
             SearchSelect.populate('e_student',
                 students.map(s => ({ value: s.id, label: `${s.roll_number || s.username}`, sub: `${s.first_name} ${s.last_name}` }))
             );
-            SearchSelect.populate('e_course',
-                courses.map(c => ({ value: c.id, label: `${c.code} — ${c.name}`, sub: `${c.credits} credits` }))
+            SearchSelect.populate('e_offering',
+                offerings.map(o => ({ value: o.id, label: o.label, sub: `${o.credits} credits` }))
             );
+            SearchSelect.unlock('e_student');
+            SearchSelect.unlock('e_offering');
+            if (opts.preOfferingId) {
+                SearchSelect.lock('e_offering', opts.preOfferingId, opts.offeringLabel);
+            }
         }
     }
 }
 
-async function assignCourseForTeacher(teacherId, teacherName) {
+async function assignOfferingForTeacher(teacherId, teacherName) {
     await openModal('assignModal', { preTeacherId: teacherId, teacherName });
 }
 
-async function assignTeacherForCourse(courseId, courseName) {
-    await openModal('assignModal', { preCourseId: courseId, courseName });
+async function assignTeacherForOffering(offeringId, offeringLabel) {
+    await openModal('assignModal', { preOfferingId: offeringId, offeringLabel });
 }
 
-async function assignCourseFromButton(button) {
-    await assignCourseForTeacher(button.dataset.teacherId, button.dataset.teacherName);
+async function assignOfferingFromButton(button) {
+    await assignOfferingForTeacher(button.dataset.teacherId, button.dataset.teacherName);
 }
 
 async function assignTeacherFromButton(button) {
-    await assignTeacherForCourse(button.dataset.courseId, button.dataset.courseName);
+    await assignTeacherForOffering(button.dataset.offeringId, button.dataset.offeringLabel);
+}
+
+async function assignCourseForTeacher(teacherId, teacherName) {
+    await assignOfferingForTeacher(teacherId, teacherName);
+}
+
+async function assignTeacherForCourse(offeringId, offeringLabel) {
+    await assignTeacherForOffering(offeringId, offeringLabel);
+}
+
+async function assignCourseFromButton(button) {
+    await assignOfferingFromButton(button);
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
