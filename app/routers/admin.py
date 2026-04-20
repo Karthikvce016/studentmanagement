@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import date
 from typing import Union
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -33,6 +33,9 @@ from app.models import (
     parse_roll_number,
 )
 from app.schemas import (
+    BulkResponse,
+    BulkRowResult,
+    BulkSummary,
     CourseCreate,
     CourseOfferingCreate,
     CourseOfferingOut,
@@ -702,6 +705,7 @@ def list_enrollments(db: Session = Depends(get_db), current_user: User = Depends
             "academic_year": offering_out.academic_year,
             "semester": offering_out.semester,
             "section_name": offering_out.section_name,
+            "branch_code": offering_out.branch_code,
             "enrolled_date": str(enrollment.enrolled_date) if enrollment.enrolled_date else None,
         })
     return result
@@ -712,7 +716,7 @@ def list_teacher_assignments(db: Session = Depends(get_db), current_user: User =
     assignments = (
         db.query(TeacherCourse)
         .options(
-            joinedload(TeacherCourse.teacher),
+            joinedload(TeacherCourse.teacher).joinedload(Teacher.user),
             joinedload(TeacherCourse.course_offering).joinedload(CourseOffering.course),
             joinedload(TeacherCourse.course_offering).joinedload(CourseOffering.section),
         )
@@ -725,6 +729,7 @@ def list_teacher_assignments(db: Session = Depends(get_db), current_user: User =
             "id": assignment.id,
             "teacher_id": assignment.teacher_id,
             "teacher_name": f"{assignment.teacher.first_name} {assignment.teacher.last_name}",
+            "teacher_username": assignment.teacher.user.username if assignment.teacher.user else "",
             "offering_id": assignment.offering_id,
             "offering_label": offering_out.label,
             "course_code": offering_out.course_code,
@@ -732,6 +737,7 @@ def list_teacher_assignments(db: Session = Depends(get_db), current_user: User =
             "academic_year": offering_out.academic_year,
             "semester": offering_out.semester,
             "section_name": offering_out.section_name,
+            "branch_code": offering_out.branch_code,
         })
     return result
 
@@ -898,3 +904,490 @@ def report_attendance_trend(db: Session = Depends(get_db), current_user: User = 
         }
         for month, values in sorted(by_month.items())
     ]
+
+
+# ── Bulk Endpoints ─────────────────────────────────────
+
+
+def _resolve_section(db: Session, section_str: str):
+    """Resolve a section string like '733-A' or '733-A (2024)' to a Section object."""
+    if not section_str or not section_str.strip():
+        return None
+    section_str = section_str.strip()
+    # Try format: "733-A (2024)"
+    import re
+    match = re.match(r"^(\w+)-(\w+)(?:\s*\((\d+)\))?$", section_str)
+    if not match:
+        return None
+    branch_code = match.group(1)
+    section_name = match.group(2)
+    year = int(match.group(3)) if match.group(3) else None
+    query = db.query(Section).filter(
+        Section.branch_code == branch_code,
+        Section.name == section_name,
+    )
+    if year:
+        query = query.filter(Section.year == year)
+    return query.first()
+
+
+def _resolve_offering(db: Session, course_code: str, academic_year, semester, section_str: str):
+    """Resolve an offering from human-readable fields."""
+    course = db.query(Course).filter(Course.code == course_code).first()
+    if not course:
+        return None, f"Course code '{course_code}' not found"
+    section = _resolve_section(db, section_str)
+    section_id = section.id if section else None
+    query = db.query(CourseOffering).filter(
+        CourseOffering.course_id == course.id,
+        CourseOffering.academic_year == int(academic_year),
+        CourseOffering.semester == int(semester),
+    )
+    if section_id:
+        query = query.filter(CourseOffering.section_id == section_id)
+    else:
+        query = query.filter(CourseOffering.section_id.is_(None))
+    offering = query.first()
+    if not offering:
+        return None, f"No offering found for {course_code} AY{academic_year} Sem{semester}"
+    return offering, None
+
+
+@router.post("/bulk/students", response_model=BulkResponse)
+def bulk_students(rows: list = Body(...), db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    results = []
+    summary = {"created": 0, "updated": 0, "errors": 0, "deleted": 0}
+    for idx, row in enumerate(rows):
+        try:
+            roll_number = (row.get("roll_number") or "").strip()
+            first_name = (row.get("first_name") or "").strip()
+            last_name = (row.get("last_name") or "").strip()
+            dob_str = (row.get("dob") or "").strip()
+            branch_code = (row.get("branch_code") or "").strip()
+
+            if not first_name or not last_name:
+                results.append(BulkRowResult(row=idx, status="error", message="first_name and last_name required"))
+                summary["errors"] += 1
+                continue
+            if not dob_str:
+                results.append(BulkRowResult(row=idx, status="error", message="dob is required"))
+                summary["errors"] += 1
+                continue
+            try:
+                dob = date.fromisoformat(dob_str)
+            except ValueError:
+                results.append(BulkRowResult(row=idx, status="error", message=f"Invalid date format: {dob_str}"))
+                summary["errors"] += 1
+                continue
+
+            if roll_number:
+                # Update existing student
+                student = db.query(Student).filter(Student.roll_number == roll_number).first()
+                if not student:
+                    results.append(BulkRowResult(row=idx, status="error", message=f"Student '{roll_number}' not found"))
+                    summary["errors"] += 1
+                    continue
+                student.first_name = first_name
+                student.last_name = last_name
+                for field in ["email", "phone", "address", "gender", "father_name", "blood_group",
+                              "religion", "nationality", "admission_category", "category", "area",
+                              "cet_qualified", "rank", "mentor_name", "mentor_id",
+                              "identification_mark1", "identification_mark2", "current_year", "current_semester"]:
+                    val = row.get(field)
+                    if val is not None and str(val).strip():
+                        if field == "rank":
+                            val = int(val)
+                        elif field in ("current_year", "current_semester"):
+                            val = int(val)
+                        setattr(student, field, val)
+                results.append(BulkRowResult(row=idx, status="updated", message=f"Updated {roll_number}"))
+                summary["updated"] += 1
+            else:
+                # Create new student
+                if not branch_code:
+                    results.append(BulkRowResult(row=idx, status="error", message="branch_code required for new students"))
+                    summary["errors"] += 1
+                    continue
+                optional = {}
+                for field in ["email", "phone", "address", "gender", "father_name", "blood_group",
+                              "religion", "nationality", "admission_category", "category", "area",
+                              "cet_qualified", "rank", "mentor_name", "mentor_id",
+                              "identification_mark1", "identification_mark2", "current_year", "current_semester"]:
+                    val = row.get(field)
+                    if val is not None and str(val).strip():
+                        if field == "rank":
+                            val = int(val)
+                        elif field in ("current_year", "current_semester"):
+                            val = int(val)
+                        optional[field] = val
+                new_roll = _create_student_with_profile(db, first_name, last_name, dob, branch_code, **optional)
+                results.append(BulkRowResult(row=idx, status="created", message=f"Created {new_roll}"))
+                summary["created"] += 1
+        except Exception as exc:
+            db.rollback()
+            results.append(BulkRowResult(row=idx, status="error", message=str(exc)))
+            summary["errors"] += 1
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        return BulkResponse(summary=BulkSummary(errors=len(rows)), results=[
+            BulkRowResult(row=i, status="error", message=f"Commit failed: {exc}") for i in range(len(rows))
+        ])
+    return BulkResponse(summary=BulkSummary(**summary), results=results)
+
+
+@router.post("/bulk/teachers", response_model=BulkResponse)
+def bulk_teachers(rows: list = Body(...), db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    results = []
+    summary = {"created": 0, "updated": 0, "errors": 0, "deleted": 0}
+    for idx, row in enumerate(rows):
+        try:
+            username = (row.get("username") or "").strip()
+            first_name = (row.get("first_name") or "").strip()
+            last_name = (row.get("last_name") or "").strip()
+            dob_str = (row.get("dob") or "").strip()
+
+            if not first_name or not last_name:
+                results.append(BulkRowResult(row=idx, status="error", message="first_name and last_name required"))
+                summary["errors"] += 1
+                continue
+            if not dob_str:
+                results.append(BulkRowResult(row=idx, status="error", message="dob is required"))
+                summary["errors"] += 1
+                continue
+            try:
+                dob = date.fromisoformat(dob_str)
+            except ValueError:
+                results.append(BulkRowResult(row=idx, status="error", message=f"Invalid date format: {dob_str}"))
+                summary["errors"] += 1
+                continue
+
+            if username:
+                # Update existing teacher
+                user = db.query(User).filter(User.username == username).first()
+                if not user:
+                    results.append(BulkRowResult(row=idx, status="error", message=f"User '{username}' not found"))
+                    summary["errors"] += 1
+                    continue
+                teacher = db.query(Teacher).filter(Teacher.user_id == user.id).first()
+                if not teacher:
+                    results.append(BulkRowResult(row=idx, status="error", message=f"Teacher for '{username}' not found"))
+                    summary["errors"] += 1
+                    continue
+                teacher.first_name = first_name
+                teacher.last_name = last_name
+                for field in ["email", "phone", "department"]:
+                    val = row.get(field)
+                    if val is not None and str(val).strip():
+                        setattr(teacher, field, val)
+                results.append(BulkRowResult(row=idx, status="updated", message=f"Updated {username}"))
+                summary["updated"] += 1
+            else:
+                # Create new teacher
+                optional = {}
+                for field in ["email", "phone", "department"]:
+                    val = row.get(field)
+                    if val is not None and str(val).strip():
+                        optional[field] = val
+                new_username = _create_teacher_with_profile(db, first_name, last_name, dob, **optional)
+                results.append(BulkRowResult(row=idx, status="created", message=f"Created {new_username}"))
+                summary["created"] += 1
+        except Exception as exc:
+            db.rollback()
+            results.append(BulkRowResult(row=idx, status="error", message=str(exc)))
+            summary["errors"] += 1
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        return BulkResponse(summary=BulkSummary(errors=len(rows)), results=[
+            BulkRowResult(row=i, status="error", message=f"Commit failed: {exc}") for i in range(len(rows))
+        ])
+    return BulkResponse(summary=BulkSummary(**summary), results=results)
+
+
+@router.post("/bulk/courses", response_model=BulkResponse)
+def bulk_courses(rows: list = Body(...), db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    results = []
+    summary = {"created": 0, "updated": 0, "errors": 0, "deleted": 0}
+    for idx, row in enumerate(rows):
+        try:
+            code = (row.get("code") or "").strip()
+            name = (row.get("name") or "").strip()
+            credits_val = row.get("credits")
+            department = (row.get("department") or "").strip()
+
+            if not name:
+                results.append(BulkRowResult(row=idx, status="error", message="Course name is required"))
+                summary["errors"] += 1
+                continue
+
+            existing = db.query(Course).filter(Course.code == code).first() if code else None
+
+            if existing:
+                existing.name = name
+                if credits_val:
+                    existing.credits = int(credits_val)
+                if department:
+                    existing.department = department
+                results.append(BulkRowResult(row=idx, status="updated", message=f"Updated {code}"))
+                summary["updated"] += 1
+            else:
+                if not code:
+                    results.append(BulkRowResult(row=idx, status="error", message="Course code is required"))
+                    summary["errors"] += 1
+                    continue
+                course = Course(
+                    code=code,
+                    name=name,
+                    credits=int(credits_val) if credits_val else 3,
+                    department=department or None,
+                )
+                db.add(course)
+                db.flush()
+                results.append(BulkRowResult(row=idx, status="created", message=f"Created {code}"))
+                summary["created"] += 1
+        except Exception as exc:
+            db.rollback()
+            results.append(BulkRowResult(row=idx, status="error", message=str(exc)))
+            summary["errors"] += 1
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        return BulkResponse(summary=BulkSummary(errors=len(rows)), results=[
+            BulkRowResult(row=i, status="error", message=f"Commit failed: {exc}") for i in range(len(rows))
+        ])
+    return BulkResponse(summary=BulkSummary(**summary), results=results)
+
+
+@router.post("/bulk/offerings", response_model=BulkResponse)
+def bulk_offerings(rows: list = Body(...), db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    results = []
+    summary = {"created": 0, "updated": 0, "errors": 0, "deleted": 0}
+    for idx, row in enumerate(rows):
+        try:
+            row_id = row.get("id")
+            course_code = (row.get("course_code") or "").strip()
+            academic_year = row.get("academic_year")
+            semester = row.get("semester")
+            section_str = (row.get("section") or "").strip()
+            capacity = row.get("capacity")
+            start_date_str = (row.get("start_date") or "").strip()
+            end_date_str = (row.get("end_date") or "").strip()
+
+            if not course_code:
+                results.append(BulkRowResult(row=idx, status="error", message="course_code is required"))
+                summary["errors"] += 1
+                continue
+            if not academic_year or not semester:
+                results.append(BulkRowResult(row=idx, status="error", message="academic_year and semester are required"))
+                summary["errors"] += 1
+                continue
+
+            course = db.query(Course).filter(Course.code == course_code).first()
+            if not course:
+                results.append(BulkRowResult(row=idx, status="error", message=f"Course '{course_code}' not found"))
+                summary["errors"] += 1
+                continue
+
+            section = _resolve_section(db, section_str) if section_str else None
+            if section_str and not section:
+                results.append(BulkRowResult(row=idx, status="error", message=f"Section '{section_str}' not found"))
+                summary["errors"] += 1
+                continue
+
+            start_date = date.fromisoformat(start_date_str) if start_date_str else None
+            end_date = date.fromisoformat(end_date_str) if end_date_str else None
+
+            if row_id:
+                # Update existing offering
+                offering = db.query(CourseOffering).filter(CourseOffering.id == int(row_id)).first()
+                if not offering:
+                    results.append(BulkRowResult(row=idx, status="error", message=f"Offering ID {row_id} not found"))
+                    summary["errors"] += 1
+                    continue
+                offering.course_id = course.id
+                offering.academic_year = int(academic_year)
+                offering.semester = int(semester)
+                offering.section_id = section.id if section else None
+                if capacity:
+                    offering.capacity = int(capacity)
+                offering.start_date = start_date
+                offering.end_date = end_date
+                results.append(BulkRowResult(row=idx, status="updated", message=f"Updated offering {row_id}"))
+                summary["updated"] += 1
+            else:
+                # Create new offering
+                section_id = section.id if section else None
+                dup = db.query(CourseOffering).filter(
+                    CourseOffering.course_id == course.id,
+                    CourseOffering.academic_year == int(academic_year),
+                    CourseOffering.semester == int(semester),
+                )
+                if section_id:
+                    dup = dup.filter(CourseOffering.section_id == section_id)
+                else:
+                    dup = dup.filter(CourseOffering.section_id.is_(None))
+                if dup.first():
+                    results.append(BulkRowResult(row=idx, status="error", message=f"Offering already exists for {course_code} AY{academic_year} Sem{semester}"))
+                    summary["errors"] += 1
+                    continue
+                offering = CourseOffering(
+                    course_id=course.id,
+                    academic_year=int(academic_year),
+                    semester=int(semester),
+                    section_id=section_id,
+                    capacity=int(capacity) if capacity else 65,
+                    start_date=start_date,
+                    end_date=end_date,
+                    is_active=True,
+                )
+                db.add(offering)
+                db.flush()
+                results.append(BulkRowResult(row=idx, status="created", message=f"Created offering for {course_code}"))
+                summary["created"] += 1
+        except Exception as exc:
+            db.rollback()
+            results.append(BulkRowResult(row=idx, status="error", message=str(exc)))
+            summary["errors"] += 1
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        return BulkResponse(summary=BulkSummary(errors=len(rows)), results=[
+            BulkRowResult(row=i, status="error", message=f"Commit failed: {exc}") for i in range(len(rows))
+        ])
+    return BulkResponse(summary=BulkSummary(**summary), results=results)
+
+
+@router.post("/bulk/enrollments", response_model=BulkResponse)
+def bulk_enrollments(rows: list = Body(...), db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    results = []
+    summary = {"created": 0, "updated": 0, "errors": 0, "deleted": 0}
+    for idx, row in enumerate(rows):
+        try:
+            student_roll = (row.get("student_roll") or "").strip()
+            course_code = (row.get("course_code") or "").strip()
+            academic_year = row.get("academic_year")
+            semester = row.get("semester")
+            section_str = (row.get("section") or "").strip()
+
+            if not student_roll:
+                results.append(BulkRowResult(row=idx, status="error", message="student_roll is required"))
+                summary["errors"] += 1
+                continue
+            if not course_code or not academic_year or not semester:
+                results.append(BulkRowResult(row=idx, status="error", message="course_code, academic_year, semester are required"))
+                summary["errors"] += 1
+                continue
+
+            student = db.query(Student).filter(Student.roll_number == student_roll).first()
+            if not student:
+                results.append(BulkRowResult(row=idx, status="error", message=f"Student '{student_roll}' not found"))
+                summary["errors"] += 1
+                continue
+
+            offering, err = _resolve_offering(db, course_code, academic_year, semester, section_str)
+            if err:
+                results.append(BulkRowResult(row=idx, status="error", message=err))
+                summary["errors"] += 1
+                continue
+
+            existing = db.query(Enrollment).filter(
+                Enrollment.student_id == student.id,
+                Enrollment.offering_id == offering.id,
+            ).first()
+            if existing:
+                results.append(BulkRowResult(row=idx, status="error", message="Already enrolled"))
+                summary["errors"] += 1
+                continue
+
+            if offering.capacity and db.query(Enrollment).filter(Enrollment.offering_id == offering.id).count() >= offering.capacity:
+                results.append(BulkRowResult(row=idx, status="error", message="Offering capacity reached"))
+                summary["errors"] += 1
+                continue
+
+            db.add(Enrollment(student_id=student.id, offering_id=offering.id, enrolled_date=date.today()))
+            db.flush()
+            results.append(BulkRowResult(row=idx, status="created", message=f"Enrolled {student_roll}"))
+            summary["created"] += 1
+        except Exception as exc:
+            db.rollback()
+            results.append(BulkRowResult(row=idx, status="error", message=str(exc)))
+            summary["errors"] += 1
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        return BulkResponse(summary=BulkSummary(errors=len(rows)), results=[
+            BulkRowResult(row=i, status="error", message=f"Commit failed: {exc}") for i in range(len(rows))
+        ])
+    return BulkResponse(summary=BulkSummary(**summary), results=results)
+
+
+@router.post("/bulk/assignments", response_model=BulkResponse)
+def bulk_assignments(rows: list = Body(...), db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    results = []
+    summary = {"created": 0, "updated": 0, "errors": 0, "deleted": 0}
+    for idx, row in enumerate(rows):
+        try:
+            teacher_username = (row.get("teacher_username") or "").strip()
+            course_code = (row.get("course_code") or "").strip()
+            academic_year = row.get("academic_year")
+            semester = row.get("semester")
+            section_str = (row.get("section") or "").strip()
+
+            if not teacher_username:
+                results.append(BulkRowResult(row=idx, status="error", message="teacher_username is required"))
+                summary["errors"] += 1
+                continue
+            if not course_code or not academic_year or not semester:
+                results.append(BulkRowResult(row=idx, status="error", message="course_code, academic_year, semester are required"))
+                summary["errors"] += 1
+                continue
+
+            user = db.query(User).filter(User.username == teacher_username).first()
+            if not user:
+                results.append(BulkRowResult(row=idx, status="error", message=f"User '{teacher_username}' not found"))
+                summary["errors"] += 1
+                continue
+            teacher = db.query(Teacher).filter(Teacher.user_id == user.id).first()
+            if not teacher:
+                results.append(BulkRowResult(row=idx, status="error", message=f"Teacher for '{teacher_username}' not found"))
+                summary["errors"] += 1
+                continue
+
+            offering, err = _resolve_offering(db, course_code, academic_year, semester, section_str)
+            if err:
+                results.append(BulkRowResult(row=idx, status="error", message=err))
+                summary["errors"] += 1
+                continue
+
+            existing = db.query(TeacherCourse).filter(
+                TeacherCourse.teacher_id == teacher.id,
+                TeacherCourse.offering_id == offering.id,
+            ).first()
+            if existing:
+                results.append(BulkRowResult(row=idx, status="error", message="Already assigned"))
+                summary["errors"] += 1
+                continue
+
+            db.add(TeacherCourse(teacher_id=teacher.id, offering_id=offering.id))
+            db.flush()
+            results.append(BulkRowResult(row=idx, status="created", message=f"Assigned {teacher_username}"))
+            summary["created"] += 1
+        except Exception as exc:
+            db.rollback()
+            results.append(BulkRowResult(row=idx, status="error", message=str(exc)))
+            summary["errors"] += 1
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        return BulkResponse(summary=BulkSummary(errors=len(rows)), results=[
+            BulkRowResult(row=i, status="error", message=f"Commit failed: {exc}") for i in range(len(rows))
+        ])
+    return BulkResponse(summary=BulkSummary(**summary), results=results)
+
