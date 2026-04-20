@@ -4,9 +4,11 @@ import logging
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
 from app.database import get_db
-from app.models import User, Role, Student, Teacher, Course, TeacherCourse, Enrollment, Section
+from app.models import (
+    User, Role, Student, Teacher, Course, TeacherCourse, Enrollment, Section,
+    parse_roll_number,
+)
 from app.schemas import (
     StudentCreate, StudentUpdate, StudentOut,
     TeacherCreate, TeacherUpdate, TeacherOut,
@@ -27,6 +29,11 @@ admin_required = require_role("ADMIN")
 
 COLLEGE_CODE = "1602"  # Your college code
 SECTION_SIZE = 65      # Students per section
+
+
+def _default_password_from_dob(dob: date) -> str:
+    """Project-standard temporary password: DOB in DDMMYYYY format."""
+    return dob.strftime("%d%m%Y")
 
 
 def _generate_roll_number(db: Session, branch_code: str, joining_year: int) -> str:
@@ -83,7 +90,7 @@ def _create_teacher_with_profile(db: Session, first_name: str, last_name: str,
                                   dob: date, **profile_fields) -> str:
     """Create a User + Teacher profile. Returns the generated username."""
     username = _generate_unique_username(db, first_name, last_name)
-    default_password = dob.strftime("%d%m%Y")
+    default_password = _default_password_from_dob(dob)
 
     role = db.query(Role).filter(Role.name == "TEACHER").first()
     if not role:
@@ -107,10 +114,10 @@ def _create_student_with_profile(db: Session, first_name: str, last_name: str,
     """
     joining_year = date.today().year
     roll_number = _generate_roll_number(db, branch_code, joining_year)
-    default_password = dob.strftime("%d%m%Y")
+    default_password = _default_password_from_dob(dob)
 
-    # Extract serial from roll number to determine section
-    serial = int(roll_number.split("-")[-1])
+    roll_info = parse_roll_number(roll_number)
+    serial = roll_info["serial"]
     section = _get_or_create_section(db, branch_code, joining_year, serial)
 
     role = db.query(Role).filter(Role.name == "STUDENT").first()
@@ -134,9 +141,18 @@ def _create_student_with_profile(db: Session, first_name: str, last_name: str,
 
 def _build_student_out(s: Student) -> StudentOut:
     """Build a StudentOut response from a Student model instance."""
+    roll_info = {}
+    if s.roll_number:
+        try:
+            roll_info = parse_roll_number(s.roll_number)
+        except ValueError:
+            roll_info = {}
     return StudentOut(
         id=s.id, user_id=s.user_id, username=s.user.username,
         roll_number=s.roll_number, branch_code=s.branch_code,
+        roll_college_code=roll_info.get("college_code"),
+        roll_joining_year=roll_info.get("joining_year"),
+        roll_serial=roll_info.get("serial"),
         section_name=s.section.name if s.section else None,
         first_name=s.first_name, last_name=s.last_name,
         gender=s.gender.value if s.gender else None,
@@ -289,6 +305,27 @@ def update_student(student_id: int, data: StudentUpdate, db: Session = Depends(g
     db.commit()
     logger.info("Admin %s updated student %d", current_user.username, student_id)
     return {"message": "Student updated"}
+
+
+@router.post("/students/{student_id}/reset-password")
+def reset_student_password(student_id: int, db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    """Reset a student's password to DOB (DDMMYYYY) and force password change."""
+    student = (
+        db.query(Student)
+        .options(joinedload(Student.user))
+        .filter(Student.id == student_id)
+        .first()
+    )
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    if not student.user:
+        raise HTTPException(status_code=404, detail="Student user account not found")
+
+    student.user.password_hash = hash_password(_default_password_from_dob(student.dob))
+    student.user.must_change_password = True
+    db.commit()
+    logger.info("Admin %s reset password for student %d", current_user.username, student_id)
+    return {"message": "Student password reset to DOB (DDMMYYYY). Student must change it on next login."}
 
 
 @router.delete("/students/{student_id}")

@@ -2,7 +2,7 @@
 
 from sqlalchemy import (
     Column, Integer, String, Boolean, Date, Float,
-    ForeignKey, Enum, UniqueConstraint, Text
+    ForeignKey, Enum, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -14,6 +14,10 @@ import enum
 class AttendanceStatus(str, enum.Enum):
     PRESENT = "PRESENT"
     ABSENT = "ABSENT"
+
+
+MAX_PERIODS_PER_DAY = 7
+MAX_SUB_PERIODS = 4
 
 
 class AssessmentType(str, enum.Enum):
@@ -227,10 +231,11 @@ class Attendance(Base):
     id = Column(Integer, primary_key=True, index=True)
     enrollment_id = Column(Integer, ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False)
     date = Column(Date, nullable=False)
-    period = Column(Integer, nullable=False)  # 1–6 (each period = 1 hour)
+    period = Column(Integer, nullable=False)      # 1-7 standard periods
+    sub_period = Column(Integer, nullable=False, default=1)  # 1 for normal classes, >1 for split/lab hours
     status = Column(Enum(AttendanceStatus), nullable=False)
 
-    __table_args__ = (UniqueConstraint("enrollment_id", "date", "period"),)
+    __table_args__ = (UniqueConstraint("enrollment_id", "date", "period", "sub_period"),)
 
     enrollment = relationship("Enrollment", back_populates="attendances")
 
@@ -264,6 +269,8 @@ class Assessment(Base):
     type = Column(Enum(AssessmentType), nullable=False)
     max_marks = Column(Float, nullable=False)
     date = Column(Date)
+
+    __table_args__ = (UniqueConstraint("course_id", "type", "name"),)
 
     course = relationship("Course", back_populates="assessments")
     marks = relationship("Mark", back_populates="assessment", cascade="all, delete-orphan")
@@ -341,3 +348,17 @@ def compute_grade(percentage: float) -> tuple[str, int]:
         if percentage >= threshold:
             return grade, points
     return "F", 0
+
+
+def parse_roll_number(roll_number: str) -> dict:
+    """Parse roll number format: COLLEGE-YY-BRANCH-SERIAL."""
+    parts = roll_number.split("-") if roll_number else []
+    if len(parts) != 4 or not parts[1].isdigit() or not parts[3].isdigit():
+        raise ValueError("Invalid roll number format")
+    return {
+        "college_code": parts[0],
+        "joining_year_short": parts[1],
+        "joining_year": 2000 + int(parts[1]),
+        "branch_code": parts[2],
+        "serial": int(parts[3]),
+    }

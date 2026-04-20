@@ -78,9 +78,77 @@ def admin_token():
     return res.json()["access_token"]
 
 
+def login_token(username, password):
+    """Helper to get a JWT token for any seeded/created user."""
+    res = client.post("/auth/login", json={"username": username, "password": password})
+    assert res.status_code == 200
+    return res.json()["access_token"]
+
+
 def auth_header(token=None):
     t = token or admin_token()
     return {"Authorization": f"Bearer {t}"}
+
+
+def create_assigned_teacher_course_student(label):
+    """Create one teacher, course, student, assignment, and enrollment for teacher-route tests."""
+    headers = auth_header()
+    teacher_email = f"{label}.teacher@example.com"
+    student_email = f"{label}.student@example.com"
+    course_code = f"{label.upper()}101"
+
+    teacher_res = client.post("/admin/teachers", json={
+        "first_name": label.title(),
+        "last_name": "Teacher",
+        "dob": "1985-01-02",
+        "email": teacher_email,
+        "phone": "9876500001",
+        "department": "Computer Science",
+    }, headers=headers)
+    assert teacher_res.status_code == 201
+
+    course_res = client.post("/admin/courses", json={
+        "code": course_code,
+        "name": f"{label.title()} Course",
+        "credits": 3,
+        "department": "Computer Science",
+    }, headers=headers)
+    assert course_res.status_code == 201
+    course_id = course_res.json()["id"]
+
+    student_res = client.post("/admin/students", json={
+        "first_name": label.title(),
+        "last_name": "Student",
+        "dob": "2004-03-04",
+        "branch_code": "733",
+        "email": student_email,
+        "phone": "9876500002",
+    }, headers=headers)
+    assert student_res.status_code == 201
+
+    teachers = client.get("/admin/teachers", headers=headers).json()
+    teacher = next(t for t in teachers if t["email"] == teacher_email)
+    students = client.get("/admin/students", headers=headers).json()
+    student = next(s for s in students if s["email"] == student_email)
+
+    assign_res = client.post(
+        f"/admin/assign-teacher?teacher_id={teacher['id']}&course_id={course_id}",
+        headers=headers,
+    )
+    assert assign_res.status_code == 200
+    enroll_res = client.post(
+        f"/admin/enroll?student_id={student['id']}&course_id={course_id}",
+        headers=headers,
+    )
+    assert enroll_res.status_code == 200
+
+    teacher_token = login_token(teacher["username"], "02011985")
+    return {
+        "teacher": teacher,
+        "teacher_token": teacher_token,
+        "course_id": course_id,
+        "student": student,
+    }
 
 
 # ── Auth Tests ────────────────────────────────────────
@@ -134,6 +202,9 @@ class TestAdminStudents:
         assert len(students) >= 1
         # Section should be auto-assigned
         assert students[0]["section_name"] is not None
+        assert students[0]["roll_college_code"] == "1602"
+        assert students[0]["roll_joining_year"] is not None
+        assert students[0]["roll_serial"] is not None
 
     def test_update_student(self):
         students = client.get("/admin/students", headers=auth_header()).json()
@@ -143,6 +214,43 @@ class TestAdminStudents:
             "blood_group": "O+",
         }, headers=auth_header())
         assert res.status_code == 200
+
+    def test_reset_student_password_restores_dob_password_and_force_change(self):
+        create_res = client.post("/admin/students", json={
+            "first_name": "Reset",
+            "last_name": "Student",
+            "dob": "2004-07-16",
+            "branch_code": "733",
+            "email": "reset.student@example.com",
+            "phone": "9876500100",
+        }, headers=auth_header())
+        assert create_res.status_code == 201
+
+        students = client.get("/admin/students", headers=auth_header()).json()
+        student = next(s for s in students if s["email"] == "reset.student@example.com")
+
+        initial_token = login_token(student["username"], "16072004")
+        change_res = client.post("/auth/change-password", json={
+            "new_password": "ResetPass123"
+        }, headers=auth_header(initial_token))
+        assert change_res.status_code == 200
+
+        reset_res = client.post(
+            f"/admin/students/{student['id']}/reset-password",
+            headers=auth_header(),
+        )
+        assert reset_res.status_code == 200
+
+        login_res = client.post("/auth/login", json={
+            "username": student["username"],
+            "password": "16072004",
+        })
+        assert login_res.status_code == 200
+        assert login_res.json()["must_change_password"] is True
+
+    def test_reset_student_password_missing_student_returns_404(self):
+        res = client.post("/admin/students/999999/reset-password", headers=auth_header())
+        assert res.status_code == 404
 
     def test_list_students_filter_by_branch(self):
         res = client.get("/admin/students?branch_code=733", headers=auth_header())
@@ -253,6 +361,132 @@ class TestTeacherCourseAssignments:
         assert unassign_res.status_code == 200
 
 
+# ── Teacher Workflow Roadmap Tests ───────────────────
+
+class TestTeacherWorkflowRoadmap:
+    def test_teacher_sections_assessment_limits_and_marks_csv(self):
+        ctx = create_assigned_teacher_course_student("roadmapmarks")
+        teacher_headers = auth_header(ctx["teacher_token"])
+
+        sections_res = client.get(
+            f"/teacher/courses/{ctx['course_id']}/sections",
+            headers=teacher_headers,
+        )
+        assert sections_res.status_code == 200
+        assert sections_res.json()[0]["student_count"] >= 1
+
+        bad_assessment = client.post("/teacher/assessments", json={
+            "course_id": ctx["course_id"],
+            "name": "IntBad",
+            "type": "INTERNAL",
+            "max_marks": 20,
+        }, headers=teacher_headers)
+        assert bad_assessment.status_code == 400
+
+        assessment_res = client.post("/teacher/assessments", json={
+            "course_id": ctx["course_id"],
+            "name": "Int1",
+            "type": "INTERNAL",
+        }, headers=teacher_headers)
+        assert assessment_res.status_code == 200
+        assessment_id = assessment_res.json()["id"]
+
+        template_res = client.get(
+            f"/teacher/marks/{assessment_id}/template",
+            headers=teacher_headers,
+        )
+        assert template_res.status_code == 200
+        assert "roll_number" in template_res.text
+        assert ctx["student"]["roll_number"] in template_res.text
+
+        csv_body = f"roll_number,marks_obtained\n{ctx['student']['roll_number']},28\n"
+        upload_res = client.post(
+            f"/teacher/marks/{assessment_id}/upload-csv",
+            files={"file": ("marks.csv", csv_body, "text/csv")},
+            headers=teacher_headers,
+        )
+        assert upload_res.status_code == 200
+        assert upload_res.json()["updated"] == 1
+
+        grid_res = client.get(
+            f"/teacher/marks/{assessment_id}/grid",
+            headers=teacher_headers,
+        )
+        assert grid_res.status_code == 200
+        row = next(r for r in grid_res.json() if r["roll_number"] == ctx["student"]["roll_number"])
+        assert row["marks_obtained"] == 28
+        assert row["max_marks"] == 30
+
+    def test_sub_period_attendance_grid_and_csv_upload(self):
+        ctx = create_assigned_teacher_course_student("roadmapatt")
+        teacher_headers = auth_header(ctx["teacher_token"])
+
+        empty_grid_res = client.get(
+            f"/teacher/attendance/{ctx['course_id']}/grid"
+            "?att_date=2026-03-01&period=7&sub_period=2",
+            headers=teacher_headers,
+        )
+        assert empty_grid_res.status_code == 200
+        empty_row = next(r for r in empty_grid_res.json() if r["roll_number"] == ctx["student"]["roll_number"])
+        assert empty_row["status"] is None
+
+        mark_res = client.post("/teacher/attendance", json={
+            "course_id": ctx["course_id"],
+            "date": "2026-03-01",
+            "period": 7,
+            "sub_period": 2,
+            "records": [{
+                "student_id": ctx["student"]["id"],
+                "status": "PRESENT",
+            }],
+        }, headers=teacher_headers)
+        assert mark_res.status_code == 200
+
+        detail_res = client.get(
+            f"/teacher/attendance/{ctx['course_id']}/date/2026-03-01",
+            headers=teacher_headers,
+        )
+        assert detail_res.status_code == 200
+        row = next(r for r in detail_res.json() if r["roll_number"] == ctx["student"]["roll_number"])
+        assert row["periods"]["period_7_2"] == "PRESENT"
+
+        template_res = client.get(
+            f"/teacher/attendance/{ctx['course_id']}/template"
+            "?att_date=2026-03-01&period=7&sub_period=2",
+            headers=teacher_headers,
+        )
+        assert template_res.status_code == 200
+        assert "status" in template_res.text
+
+        csv_body = f"roll_number,status\n{ctx['student']['roll_number']},ABSENT\n"
+        upload_res = client.post(
+            f"/teacher/attendance/{ctx['course_id']}/upload-csv"
+            "?att_date=2026-03-01&period=7&sub_period=2",
+            files={"file": ("attendance.csv", csv_body, "text/csv")},
+            headers=teacher_headers,
+        )
+        assert upload_res.status_code == 200
+        assert upload_res.json()["updated"] == 1
+
+        summary_res = client.get(
+            f"/teacher/attendance/{ctx['course_id']}",
+            headers=teacher_headers,
+        )
+        assert summary_res.status_code == 200
+        summary_row = next(r for r in summary_res.json() if r["roll_number"] == ctx["student"]["roll_number"])
+        assert summary_row["total_periods"] == 1
+        assert summary_row["present"] == 0
+
+        grid_res = client.get(
+            f"/teacher/attendance/{ctx['course_id']}/grid"
+            "?att_date=2026-03-01&period=7&sub_period=2",
+            headers=teacher_headers,
+        )
+        assert grid_res.status_code == 200
+        row = next(r for r in grid_res.json() if r["roll_number"] == ctx["student"]["roll_number"])
+        assert row["status"] == "ABSENT"
+
+
 # ── RBAC Tests ────────────────────────────────────────
 
 class TestRBAC:
@@ -263,6 +497,14 @@ class TestRBAC:
     def test_invalid_token_rejected(self):
         res = client.get("/admin/students", headers={"Authorization": "Bearer invalidtoken"})
         assert res.status_code == 401
+
+    def test_teacher_cannot_reset_student_password(self):
+        ctx = create_assigned_teacher_course_student("resetdeny")
+        res = client.post(
+            f"/admin/students/{ctx['student']['id']}/reset-password",
+            headers=auth_header(ctx["teacher_token"]),
+        )
+        assert res.status_code == 403
 
 
 # ── Validation Tests ──────────────────────────────────
@@ -303,11 +545,11 @@ class TestValidation:
         assert res.status_code == 422
 
     def test_attendance_invalid_period_rejected(self):
-        """Period must be 1-6."""
+        """Period must be 1-7."""
         res = client.post("/teacher/attendance", json={
             "course_id": 1,
             "date": "2026-03-01",
-            "period": 7,  # Invalid — max is 6
+            "period": 8,  # Invalid — max is 7
             "records": []
         }, headers=auth_header())
         # Should be 422 (validation) or 403 (not a teacher) — either is acceptable
