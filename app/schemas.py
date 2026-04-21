@@ -3,10 +3,7 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from datetime import date
 from typing import Optional
-from app.models import (
-    AttendanceStatus, AssessmentType, Gender, AdmissionCategory, Category, Area,
-    MAX_PERIODS_PER_DAY, MAX_SUB_PERIODS
-)
+from app.models import AttendanceStatus, AssessmentType, Gender, AdmissionCategory, Category, Area
 
 
 # ── Auth ───────────────────────────────────────────────
@@ -104,9 +101,6 @@ class StudentOut(BaseModel):
     user_id: int
     username: str
     roll_number: Optional[str] = None
-    roll_college_code: Optional[str] = None
-    roll_joining_year: Optional[int] = None
-    roll_serial: Optional[int] = None
     branch_code: Optional[str] = None
     section_name: Optional[str] = None
     first_name: str
@@ -200,8 +194,7 @@ class AttendanceRecord(BaseModel):
 class AttendanceMark(BaseModel):
     course_id: int
     date: date
-    period: int = Field(ge=1, le=MAX_PERIODS_PER_DAY)
-    sub_period: int = Field(default=1, ge=1, le=MAX_SUB_PERIODS)
+    period: int = Field(ge=1, le=6)  # 6 periods per day, 1 hour each
     records: list[AttendanceRecord]
 
 
@@ -211,7 +204,7 @@ class AssessmentCreate(BaseModel):
     course_id: int
     name: str = Field(min_length=1, max_length=200)
     type: AssessmentType
-    max_marks: Optional[float] = Field(None, gt=0, le=1000)
+    max_marks: float = Field(gt=0, le=1000)
     date: Optional[date] = None
 
 class AssessmentOut(BaseModel):

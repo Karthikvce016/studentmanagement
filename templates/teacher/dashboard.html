@@ -3,42 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMS - Teacher Workspace</title>
+    <title>SMS — Teacher Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="app-page teacher-page">
+<body>
     <nav class="nav-bar">
-        <span class="brand">Teacher Portal</span>
+        <span class="brand">SMS — Teacher</span>
         <div class="nav-links">
             <a href="#" class="active" onclick="showSection('courses', event)">My Courses</a>
             <a href="#" onclick="logout()">Logout</a>
         </div>
     </nav>
-
-    <main class="container">
+    <div class="container">
         <div id="alert" class="alert"></div>
 
-        <section id="section-courses">
-            <div class="page-header">
-                <div>
-                    <p class="eyebrow">Teacher Portal</p>
-                    <h1>My Courses</h1>
-                </div>
-            </div>
-            <p class="helper-text">Open a course to manage students, attendance, assessments, and marks.</p>
+        <!-- Courses List -->
+        <div id="section-courses">
+            <div class="page-header"><h1>My Courses</h1></div>
+            <p style="color:var(--text-muted);margin-bottom:12px;font-size:0.9rem;">Courses assigned to you by the admin. Click a course to manage students, attendance and assessments.</p>
             <div id="courses-list" class="courses-grid"></div>
-            <div id="no-courses" class="panel" style="display:none;">
-                <p class="muted">No courses assigned yet.</p>
+            <div id="no-courses" style="display:none;" class="card" style="text-align:center;padding:40px;">
+                <p style="color:var(--text-muted);">No courses assigned yet. Ask your admin to assign a course.</p>
             </div>
-        </section>
+        </div>
 
-        <section id="section-detail" style="display:none;">
+        <!-- Course Detail -->
+        <div id="section-detail" style="display:none;">
             <div class="page-header">
-                <div>
-                    <p class="eyebrow">Course Workspace</p>
-                    <h1 id="detail-title">Course</h1>
-                </div>
-                <button class="btn btn-outline" onclick="showSection('courses', event)">Back to Courses</button>
+                <h1 id="detail-title">Course</h1>
+                <button class="btn btn-outline" onclick="showSection('courses', event)">← Back to Courses</button>
             </div>
 
             <div class="tabs">
@@ -47,77 +40,59 @@
                 <button class="tab" onclick="switchTab(this, 'assessments')">Assessments</button>
             </div>
 
-            <section id="sub-students" class="tab-content active">
+            <!-- Students Sub-tab -->
+            <div id="sub-students" class="tab-content active">
                 <div class="card table-wrapper">
-                    <table>
-                        <thead><tr><th>Roll Number</th><th>Name</th><th>Section</th><th>Email</th></tr></thead>
-                        <tbody id="detail-students"></tbody>
-                    </table>
+                    <table><thead><tr><th>ID</th><th>Name</th><th>Email</th></tr></thead>
+                    <tbody id="detail-students"></tbody></table>
                 </div>
-            </section>
+            </div>
 
-            <section id="sub-attendance" class="tab-content">
-                <div class="panel" style="margin-bottom:16px;">
-                    <h2 class="section-title" style="font-size:1.15rem;margin-bottom:14px;">Mark Attendance</h2>
-                    <div class="inline-form">
-                        <div class="form-group">
-                            <label>Date</label>
-                            <input type="date" id="att-date">
-                        </div>
-                        <div class="form-group">
-                            <label>Period</label>
-                            <input type="number" id="att-period" min="1" max="7" value="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Sub Period</label>
-                            <input type="number" id="att-sub-period" min="1" max="4" value="1">
-                        </div>
+            <!-- Attendance Sub-tab -->
+            <div id="sub-attendance" class="tab-content">
+                <div class="card" style="margin-bottom:16px;">
+                    <h2 style="font-size:1rem;margin-bottom:12px;">Mark Attendance</h2>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="att-date" value="" style="max-width:200px;">
                     </div>
-                    <p class="attendance-note">Checked means present. Changes save automatically for the selected date and slot.</p>
-                    <div id="att-form" style="margin-top:12px;"></div>
+                    <div id="att-form"></div>
+                    <button class="btn btn-primary" style="margin-top:12px;" onclick="submitAttendance()">Save Attendance</button>
                 </div>
-
                 <div class="card">
-                    <h2 class="section-title" style="font-size:1.15rem;margin-bottom:14px;">Attendance Summary</h2>
+                    <h2 style="font-size:1rem;margin-bottom:12px;">Attendance Summary</h2>
                     <div class="table-wrapper">
-                        <table>
-                            <thead><tr><th>Student</th><th>Total Periods</th><th>Present</th><th>Percentage</th></tr></thead>
-                            <tbody id="att-summary"></tbody>
-                        </table>
+                        <table><thead><tr><th>Student</th><th>Total</th><th>Present</th><th>%</th></tr></thead>
+                        <tbody id="att-summary"></tbody></table>
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <section id="sub-assessments" class="tab-content">
-                <div class="panel" style="margin-bottom:16px;">
-                    <h2 class="section-title" style="font-size:1.15rem;margin-bottom:14px;">Create Assessment</h2>
-                    <form id="assessmentForm" class="inline-form">
-                        <div class="form-group"><label>Name</label><input id="as_name" required placeholder="Int1, Quiz1, Asst1"></div>
-                        <div class="form-group"><label>Type</label>
-                            <select id="as_type">
-                                <option value="INTERNAL">INTERNAL</option>
-                                <option value="QUIZ">QUIZ</option>
-                                <option value="ASSIGNMENT">ASSIGNMENT</option>
-                            </select>
+            <!-- Assessments Sub-tab -->
+            <div id="sub-assessments" class="tab-content">
+                <div class="card" style="margin-bottom:16px;">
+                    <h2 style="font-size:1rem;margin-bottom:12px;">Create Assessment</h2>
+                    <form id="assessmentForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="margin:0;flex:1;min-width:140px;"><label>Name</label><input id="as_name" required></div>
+                        <div class="form-group" style="margin:0;min-width:120px;"><label>Type</label>
+                            <select id="as_type"><option>QUIZ</option><option>MIDTERM</option><option>FINAL</option><option>ASSIGNMENT</option></select>
                         </div>
-                        <div class="form-group"><label>Max Marks</label><input type="number" id="as_max" value="30" readonly></div>
-                        <div class="form-group"><label>Date</label><input type="date" id="as_date"></div>
+                        <div class="form-group" style="margin:0;min-width:80px;"><label>Max Marks</label><input type="number" id="as_max" value="50" required min="1"></div>
+                        <div class="form-group" style="margin:0;min-width:120px;"><label>Date</label><input type="date" id="as_date"></div>
                         <button type="submit" class="btn btn-primary">Create</button>
                     </form>
                 </div>
-
                 <div class="card">
-                    <h2 class="section-title" style="font-size:1.15rem;margin-bottom:14px;">Assessments</h2>
+                    <h2 style="font-size:1rem;margin-bottom:12px;">Assessments</h2>
                     <div class="table-wrapper">
-                        <table>
-                            <thead><tr><th>Name</th><th>Type</th><th>Max Marks</th><th>Date</th><th>Actions</th></tr></thead>
-                            <tbody id="assessments-table"></tbody>
-                        </table>
+                        <table><thead><tr><th>Name</th><th>Type</th><th>Max Marks</th><th>Date</th><th>Actions</th></tr></thead>
+                        <tbody id="assessments-table"></tbody></table>
                     </div>
                 </div>
-            </section>
-        </section>
+            </div>
+        </div>
 
+        <!-- Marks Entry Modal -->
         <div id="marksModal" class="modal-overlay">
             <div class="modal">
                 <h2 id="marks-title">Enter Marks</h2>
@@ -128,20 +103,15 @@
                 </div>
             </div>
         </div>
-    </main>
+    </div>
 
     <script src="/static/js/app.js"></script>
     <script>
         requireAuth('TEACHER');
-
         let currentCourseId = null;
         let currentAssessmentId = null;
-        let currentAttendanceStudents = [];
-        let attendanceHydrationRequest = 0;
-        const assessmentMax = { INTERNAL: 30, QUIZ: 5, ASSIGNMENT: 5 };
 
-        function showSection(name, e) {
-            if (e) e.preventDefault();
+        function showSection(name, e) {                              // Fix #12
             document.getElementById('section-courses').style.display = name === 'courses' ? 'block' : 'none';
             document.getElementById('section-detail').style.display = name === 'detail' ? 'block' : 'none';
             if (name === 'courses') loadCourses();
@@ -150,10 +120,10 @@
         function switchTab(btn, name) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
-            document.querySelectorAll('#section-detail .tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.getElementById('sub-' + name).classList.add('active');
             if (name === 'students') loadStudents();
-            if (name === 'attendance') loadAttendanceTab();
+            if (name === 'attendance') loadAttendance();
             if (name === 'assessments') loadAssessments();
         }
 
@@ -163,196 +133,84 @@
             const data = await res.json();
             const listEl = document.getElementById('courses-list');
             const emptyEl = document.getElementById('no-courses');
-
+            
             if (data.length === 0) {
                 listEl.style.display = 'none';
                 emptyEl.style.display = 'block';
-                return;
+            } else {
+                emptyEl.style.display = 'none';
+                listEl.style.display = 'grid'; // restoring grid display
+                listEl.className = 'stats-grid'; // Ensure it has grid styling
+                listEl.innerHTML = data.map(c => `
+                    <div class="stat-card" style="cursor:pointer;text-align:left;transition:transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='none';this.style.boxShadow='var(--shadow)'" onclick="openCourse(${esc(c.id)}, '${esc(c.name)}')">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div style="font-weight:700;font-size:1.1rem;color:var(--primary);">${esc(c.code)}</div>
+                            <span class="badge badge-info">${esc(c.credits)} cr</span>
+                        </div>
+                        <div style="font-weight:600;font-size:1rem;margin-top:8px;">${esc(c.name)}</div>
+                        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:4px;">${esc(c.department) || '—'}</div>
+                    </div>
+                `).join('');
             }
-
-            emptyEl.style.display = 'none';
-            listEl.style.display = 'grid';
-            listEl.innerHTML = data.map(c => `
-                <article class="course-card" data-course-id="${esc(c.id)}" data-course-name="${esc(c.name)}" onclick="openCourseFromCard(this)">
-                    <span class="course-card-code">${esc(c.code)}</span>
-                    <h2 class="course-card-name">${esc(c.name)}</h2>
-                    <p class="course-card-meta">${esc(c.credits)} credits · ${esc(c.department) || 'Department not set'}</p>
-                </article>
-            `).join('');
         }
 
-        function openCourseFromCard(card) {
-            currentCourseId = parseInt(card.dataset.courseId);
-            document.getElementById('detail-title').textContent = card.dataset.courseName;
+        function openCourse(id, name) {
+            currentCourseId = id;
+            document.getElementById('detail-title').textContent = name;
             showSection('detail');
-            document.querySelector('#section-detail .tab').click();
+            // Reset tabs
+            document.querySelectorAll('.tab')[0].click();
         }
 
         async function loadStudents() {
             const res = await api(`/teacher/courses/${currentCourseId}/students`);
             if (!res) return;
             const data = await res.json();
-            currentAttendanceStudents = data;
             document.getElementById('detail-students').innerHTML = data.map(s => `
-                <tr>
-                    <td><strong>${esc(s.roll_number || s.student_id)}</strong></td>
-                    <td>${esc(s.first_name)} ${esc(s.last_name)}</td>
-                    <td>${esc(s.section) || '-'}</td>
-                    <td>${esc(s.email) || '-'}</td>
-                </tr>
-            `).join('') || '<tr><td colspan="4">No students enrolled.</td></tr>';
+                <tr><td>${esc(s.student_id)}</td><td>${esc(s.first_name)} ${esc(s.last_name)}</td><td>${esc(s.email) || '—'}</td></tr>
+            `).join('') || '<tr><td colspan="3">No students enrolled.</td></tr>';
 
+            // Also populate the attendance form
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('att-date').value = document.getElementById('att-date').value || today;
-            renderAttendanceForm();
-            if (document.getElementById('sub-attendance').classList.contains('active')) {
-                loadAttendanceSlot();
-            }
+            document.getElementById('att-date').value = today;
+            document.getElementById('att-form').innerHTML = data.map(s => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+                    <span>${esc(s.first_name)} ${esc(s.last_name)}</span>
+                    <select class="attendance-select" data-student="${esc(s.student_id)}">
+                        <option value="PRESENT">Present</option>
+                        <option value="ABSENT">Absent</option>
+                    </select>
+                </div>
+            `).join('');
         }
 
-        function getAttendanceSlot() {
-            return {
-                date: document.getElementById('att-date').value,
-                period: parseInt(document.getElementById('att-period').value, 10) || 1,
-                sub_period: parseInt(document.getElementById('att-sub-period').value, 10) || 1
-            };
-        }
-
-        function renderAttendanceForm(rows = []) {
-            const rowMap = new Map(rows.map(r => [r.student_id, r.status]));
-            const form = document.getElementById('att-form');
-            if (!currentAttendanceStudents.length) {
-                form.innerHTML = '<p class="muted">No students enrolled.</p>';
-                return;
-            }
-
-            form.innerHTML = currentAttendanceStudents.map(s => {
-                const status = rowMap.get(s.student_id) || 'PRESENT';
-                const checked = status !== 'ABSENT';
-                const meta = [
-                    s.section ? `Section ${esc(s.section)}` : null,
-                    s.email ? esc(s.email) : null
-                ].filter(Boolean).join(' · ');
-
-                return `
-                    <div class="entry-row attendance-entry">
-                        <div class="attendance-student">
-                            <span><strong>${esc(s.roll_number || s.student_id)}</strong> ${esc(s.first_name)} ${esc(s.last_name)}</span>
-                            <div class="attendance-meta">${meta || 'Ready to mark'}</div>
-                        </div>
-                        <div class="attendance-actions">
-                            <label class="attendance-toggle ${checked ? '' : 'is-absent'}">
-                                <input type="checkbox" class="attendance-checkbox" data-student="${esc(s.student_id)}" ${checked ? 'checked' : ''} onchange="toggleAttendance(this)">
-                                <span class="attendance-toggle-text">${checked ? 'Present' : 'Absent'}</span>
-                            </label>
-                            <span class="attendance-save-status" data-attendance-status="${esc(s.student_id)}"></span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function setAttendanceRowStatus(studentId, message = '', state = '') {
-            const el = document.querySelector(`[data-attendance-status="${studentId}"]`);
-            if (!el) return;
-            el.textContent = message;
-            el.className = 'attendance-save-status' + (state ? ` ${state}` : '');
-        }
-
-        function updateAttendanceToggle(checkbox) {
-            const toggle = checkbox.closest('.attendance-toggle');
-            if (!toggle) return;
-            toggle.classList.toggle('is-absent', !checkbox.checked);
-            const text = toggle.querySelector('.attendance-toggle-text');
-            if (text) text.textContent = checkbox.checked ? 'Present' : 'Absent';
-        }
-
-        async function loadAttendanceSlot() {
-            if (!currentCourseId) return;
-            const slot = getAttendanceSlot();
-            if (!slot.date) {
-                renderAttendanceForm();
-                return;
-            }
-
-            const requestId = ++attendanceHydrationRequest;
-            renderAttendanceForm();
-            const params = new URLSearchParams({
-                att_date: slot.date,
-                period: String(slot.period),
-                sub_period: String(slot.sub_period)
+        async function submitAttendance() {
+            const date = document.getElementById('att-date').value;
+            if (!date) { showAlert('alert', 'Select a date', 'error'); return; }
+            const selects = document.querySelectorAll('.attendance-select');
+            const records = Array.from(selects).map(s => ({
+                student_id: parseInt(s.dataset.student),
+                status: s.value
+            }));
+            const res = await api('/teacher/attendance', {
+                method: 'POST',
+                body: JSON.stringify({ course_id: currentCourseId, date, records })
             });
-            const res = await api(`/teacher/attendance/${currentCourseId}/grid?${params.toString()}`);
-            if (!res || requestId !== attendanceHydrationRequest) return;
-            const rows = await res.json();
-            if (requestId !== attendanceHydrationRequest) return;
-            renderAttendanceForm(rows);
+            if (!res) return;
+            if (res.ok) { showAlert('alert', 'Attendance saved'); loadAttendance(); }
+            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
         }
 
-        async function loadAttendanceSummary() {
+        async function loadAttendance() {
             const res = await api(`/teacher/attendance/${currentCourseId}`);
             if (!res) return;
             const data = await res.json();
             document.getElementById('att-summary').innerHTML = data.map(s => `
                 <tr>
-                    <td>${esc(s.student_name)}</td>
-                    <td>${esc(s.total_periods)}</td>
-                    <td>${esc(s.present)}</td>
+                    <td>${esc(s.student_name)}</td><td>${esc(s.total_classes)}</td><td>${esc(s.present)}</td>
                     <td><span class="badge ${s.percentage >= 75 ? 'badge-success' : 'badge-danger'}">${esc(s.percentage)}%</span></td>
                 </tr>
             `).join('') || '<tr><td colspan="4">No attendance records.</td></tr>';
-        }
-
-        async function loadAttendanceTab() {
-            await Promise.all([loadAttendanceSummary(), loadAttendanceSlot()]);
-        }
-
-        async function toggleAttendance(checkbox) {
-            const slot = getAttendanceSlot();
-            const studentId = parseInt(checkbox.dataset.student, 10);
-            const previousChecked = !checkbox.checked;
-            updateAttendanceToggle(checkbox);
-
-            if (!slot.date) {
-                checkbox.checked = previousChecked;
-                updateAttendanceToggle(checkbox);
-                showAlert('alert', 'Select a date before marking attendance', 'error');
-                return;
-            }
-
-            checkbox.disabled = true;
-            setAttendanceRowStatus(studentId, 'Saving...', 'is-saving');
-
-            const res = await api('/teacher/attendance', {
-                method: 'POST',
-                body: JSON.stringify({
-                    course_id: currentCourseId,
-                    date: slot.date,
-                    period: slot.period,
-                    sub_period: slot.sub_period,
-                    records: [{
-                        student_id: studentId,
-                        status: checkbox.checked ? 'PRESENT' : 'ABSENT'
-                    }]
-                })
-            });
-
-            if (!res || !res.ok) {
-                checkbox.checked = previousChecked;
-                updateAttendanceToggle(checkbox);
-                checkbox.disabled = false;
-                setAttendanceRowStatus(studentId, 'Save failed', 'is-error');
-                if (res && !res.ok) {
-                    const data = await res.json();
-                    showAlert('alert', data.detail || 'Failed to save attendance', 'error');
-                }
-                return;
-            }
-
-            checkbox.disabled = false;
-            setAttendanceRowStatus(studentId, 'Saved', 'is-saved');
-            loadAttendanceSummary();
-            setTimeout(() => setAttendanceRowStatus(studentId, ''), 1200);
         }
 
         async function loadAssessments() {
@@ -361,60 +219,57 @@
             const data = await res.json();
             document.getElementById('assessments-table').innerHTML = data.map(a => `
                 <tr>
-                    <td>${esc(a.name)}</td>
-                    <td><span class="badge badge-info">${esc(a.type)}</span></td>
-                    <td>${esc(a.max_marks)}</td>
-                    <td>${esc(a.date) || '-'}</td>
-                    <td><button class="btn btn-primary btn-sm" data-assessment-id="${esc(a.id)}" data-assessment-name="${esc(a.name)}" data-max-marks="${esc(a.max_marks)}" onclick="openMarksFromButton(this)">Enter Marks</button></td>
+                    <td>${esc(a.name)}</td><td><span class="badge badge-info">${esc(a.type)}</span></td>
+                    <td>${esc(a.max_marks)}</td><td>${esc(a.date) || '—'}</td>
+                    <td><button class="btn btn-primary btn-sm" onclick="openMarks(${esc(a.id)}, '${esc(a.name)}', ${esc(a.max_marks)})">Enter Marks</button></td>
                 </tr>
             `).join('') || '<tr><td colspan="5">No assessments yet.</td></tr>';
         }
 
-        document.getElementById('as_type').addEventListener('change', () => {
-            const type = document.getElementById('as_type').value;
-            document.getElementById('as_max').value = assessmentMax[type];
-        });
-
         document.getElementById('assessmentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const type = document.getElementById('as_type').value;
             const res = await api('/teacher/assessments', {
                 method: 'POST',
                 body: JSON.stringify({
                     course_id: currentCourseId,
                     name: document.getElementById('as_name').value,
-                    type,
-                    max_marks: assessmentMax[type],
+                    type: document.getElementById('as_type').value,
+                    max_marks: parseFloat(document.getElementById('as_max').value),
                     date: document.getElementById('as_date').value || null
                 })
             });
             if (!res) return;
-            if (res.ok) { showAlert('alert', 'Assessment created'); loadAssessments(); e.target.reset(); document.getElementById('as_max').value = 30; }
+            if (res.ok) { showAlert('alert', 'Assessment created'); loadAssessments(); e.target.reset(); }
             else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
         });
 
-        function openMarksFromButton(button) {
-            openMarks(parseInt(button.dataset.assessmentId), button.dataset.assessmentName, parseFloat(button.dataset.maxMarks));
-        }
-
         async function openMarks(assessmentId, name, maxMarks) {
             currentAssessmentId = assessmentId;
-            document.getElementById('marks-title').textContent = `Enter Marks - ${name} (Max ${maxMarks})`;
+            document.getElementById('marks-title').textContent = `Enter Marks — ${name} (Max: ${maxMarks})`;
 
-            const res = await api(`/teacher/marks/${assessmentId}/grid`);
+            // Load existing marks
+            const marksRes = await api(`/teacher/marks/${assessmentId}`);
+            const existingMarks = marksRes ? await marksRes.json() : [];
+            const marksMap = {};
+            existingMarks.forEach(m => marksMap[m.student_id] = m.marks_obtained);
+
+            const res = await api(`/teacher/courses/${currentCourseId}/students`);
             if (!res) return;
-            const rows = await res.json();
-            document.getElementById('marks-form').innerHTML = rows.map(s => `
-                <div class="entry-row">
-                    <span><strong>${esc(s.roll_number || s.student_id)}</strong> ${esc(s.student_name)}</span>
-                    <input type="number" step="0.1" min="0" max="${esc(maxMarks)}" data-student="${esc(s.student_id)}" value="${s.marks_obtained !== null && s.marks_obtained !== undefined ? esc(s.marks_obtained) : ''}" style="width:96px;">
+            const students = await res.json();
+            document.getElementById('marks-form').innerHTML = students.map(s => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+                    <span>${esc(s.first_name)} ${esc(s.last_name)}</span>
+                    <input type="number" step="0.1" min="0" max="${esc(maxMarks)}" data-student="${esc(s.student_id)}" 
+                           value="${marksMap[s.student_id] !== undefined ? esc(marksMap[s.student_id]) : ''}" 
+                           style="width:80px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;">
                 </div>
             `).join('');
             openModal('marksModal');
         }
 
         async function submitMarks() {
-            const marks = Array.from(document.querySelectorAll('#marks-form input'))
+            const inputs = document.querySelectorAll('#marks-form input');
+            const marks = Array.from(inputs)
                 .filter(i => i.value !== '')
                 .map(i => ({ student_id: parseInt(i.dataset.student), marks_obtained: parseFloat(i.value) }));
             if (marks.length === 0) { showAlert('alert', 'Enter at least one mark', 'error'); return; }
@@ -426,16 +281,6 @@
             if (res.ok) { showAlert('alert', 'Marks saved'); closeModal('marksModal'); }
             else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
         }
-
-        document.getElementById('att-date').addEventListener('change', () => {
-            if (currentCourseId) loadAttendanceSlot();
-        });
-        document.getElementById('att-period').addEventListener('change', () => {
-            if (currentCourseId) loadAttendanceSlot();
-        });
-        document.getElementById('att-sub-period').addEventListener('change', () => {
-            if (currentCourseId) loadAttendanceSlot();
-        });
 
         loadCourses();
     </script>

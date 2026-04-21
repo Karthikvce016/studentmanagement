@@ -115,8 +115,7 @@ def my_attendance_detail(course_id: int, db: Session = Depends(get_db), current_
     # Group attendance records by date
     by_date = defaultdict(dict)
     for r in enrollment.attendances:
-        key = f"period_{r.period}" if r.sub_period == 1 else f"period_{r.period}_{r.sub_period}"
-        by_date[str(r.date)][key] = r.status.value
+        by_date[str(r.date)][f"period_{r.period}"] = r.status.value
 
     records = enrollment.attendances
     total = len(records)

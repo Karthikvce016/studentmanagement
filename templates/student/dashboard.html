@@ -3,185 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMS - Student Portal</title>
+    <title>SMS — Student Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="app-page student-page">
+<body>
     <nav class="nav-bar">
-        <span class="brand">Student Portal</span>
+        <span class="brand">SMS — Student</span>
         <div class="nav-links">
-            <a href="#" class="active" data-tab-link="profile" onclick="showTab('profile', event)">Dashboard</a>
-            <a href="#" data-tab-link="attendance" onclick="showTab('attendance', event)">Attendance</a>
-            <a href="#" data-tab-link="marks" onclick="showTab('marks', event)">Academic Marks</a>
-            <a href="#" data-tab-link="password" onclick="showTab('password', event)">Password</a>
+            <a href="#" class="active" onclick="showTab('profile', event)">Profile</a>
+            <a href="#" onclick="showTab('attendance', event)">Attendance</a>
+            <a href="#" onclick="showTab('marks', event)">Marks</a>
+            <a href="#" onclick="showTab('password', event)">Change Password</a>
             <a href="#" onclick="logout()">Logout</a>
         </div>
     </nav>
-
-    <main class="container">
+    <div class="container">
         <div id="alert" class="alert"></div>
 
-        <section id="tab-profile" class="tab-content active">
-            <div class="page-header">
-                <div>
-                    <p class="eyebrow">Student Portal</p>
-                    <h1>Dashboard</h1>
-                </div>
+        <!-- Profile Tab -->
+        <div id="tab-profile" class="tab-content active">
+            <div class="page-header"><h1>My Profile</h1></div>
+            <div class="card">
+                <table>
+                    <tbody id="profile-table"></tbody>
+                </table>
             </div>
+        </div>
 
-            <div class="student-portal-grid">
-                <section class="student-id-card" aria-label="Student ID card">
-                    <img id="profile-photo" class="student-photo" src="https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=600&q=80" alt="Student profile photo">
-                    <div>
-                        <h2 id="profile-name">Student</h2>
-                        <p id="profile-program" class="program">Computer Science</p>
-                        <div class="id-meta">
-                            <div><span>Hall Ticket No</span><strong id="profile-roll">-</strong></div>
-                            <div><span>Academic Year</span><strong id="profile-year">-</strong></div>
-                            <div><span>Semester</span><strong id="profile-semester">-</strong></div>
-                            <div><span>Section</span><strong id="profile-section">-</strong></div>
-                        </div>
-                        <div class="status-chips">
-                            <span class="status-chip" id="profile-category">Category -</span>
-                            <span class="status-chip" id="profile-area">Area -</span>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="portal-grid" aria-label="Student actions">
-                    <button type="button" class="portal-card" onclick="showTab('attendance')">
-                        <span class="portal-icon">A</span>
-                        <span>
-                            <h3>View Attendance</h3>
-                            <p>Monitor your presence</p>
-                        </span>
-                    </button>
-                    <button type="button" class="portal-card" onclick="showTab('marks')">
-                        <span class="portal-icon">M</span>
-                        <span>
-                            <h3>View Marks</h3>
-                            <p>Academic performance</p>
-                        </span>
-                    </button>
-                </section>
-            </div>
-
-            <div id="profile-details" class="profile-details"></div>
-        </section>
-
-        <section id="tab-attendance" class="tab-content">
-            <div class="page-header">
-                <div>
-                    <p class="eyebrow">Attendance</p>
-                    <h1>Presence Summary</h1>
-                </div>
-            </div>
+        <!-- Attendance Tab -->
+        <div id="tab-attendance" class="tab-content">
+            <div class="page-header"><h1>My Attendance</h1></div>
             <div class="card table-wrapper">
                 <table>
-                    <thead>
-                        <tr><th>Course Code</th><th>Course Name</th><th>Total Periods</th><th>Present</th><th>Absent</th><th>Percentage</th></tr>
-                    </thead>
+                    <thead><tr><th>Course Code</th><th>Course Name</th><th>Total Classes</th><th>Present</th><th>Absent</th><th>Percentage</th></tr></thead>
                     <tbody id="attendance-table"></tbody>
                 </table>
             </div>
-        </section>
+        </div>
 
-        <section id="tab-marks" class="tab-content">
-            <div class="page-header">
-                <div>
-                    <p class="eyebrow">Marks</p>
-                    <h1>Academic Performance</h1>
-                </div>
-            </div>
-            <div id="marks-summary" class="marks-summary"></div>
+        <!-- Marks Tab -->
+        <div id="tab-marks" class="tab-content">
+            <div class="page-header"><h1>My Marks</h1></div>
             <div class="card table-wrapper">
                 <table>
-                    <thead>
-                        <tr><th>Subject</th><th>Internals</th><th>Assignments</th><th>Quizzes</th><th>Sessional</th><th>Grade</th></tr>
-                    </thead>
+                    <thead><tr><th>Course</th><th>Assessment</th><th>Type</th><th>Obtained</th><th>Max</th><th>Percentage</th></tr></thead>
                     <tbody id="marks-table"></tbody>
                 </table>
             </div>
-        </section>
+        </div>
 
-        <section id="tab-password" class="tab-content">
-            <div class="page-header">
-                <div>
-                    <p class="eyebrow">Account</p>
-                    <h1>Change Password</h1>
-                </div>
-            </div>
-            <div class="panel" style="max-width:430px;">
-                <p class="helper-text">Minimum 8 characters. Include letters and numbers.</p>
+        <!-- Change Password Tab -->
+        <div id="tab-password" class="tab-content">
+            <div class="page-header"><h1>Change Password</h1></div>
+            <div class="card" style="max-width:400px;">
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
+                    Minimum 8 characters, must include letters and numbers.
+                </p>
                 <form id="pwdForm">
                     <div class="form-group"><label>New Password</label><input type="password" id="new_pwd" required minlength="8"></div>
                     <div class="form-group"><label>Confirm Password</label><input type="password" id="confirm_pwd" required minlength="8"></div>
                     <button type="submit" class="btn btn-primary">Change Password</button>
                 </form>
             </div>
-        </section>
-    </main>
+        </div>
+    </div>
 
     <script src="/static/js/app.js"></script>
     <script>
         requireAuth('STUDENT');
 
-        const DEFAULT_STUDENT_PHOTO = 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=600&q=80';
-
-        function setActiveNav(name) {
-            document.querySelectorAll('.nav-links a[data-tab-link]').forEach(a => {
-                a.classList.toggle('active', a.dataset.tabLink === name);
-            });
-        }
-
-        function showTab(name, e) {
-            if (e) e.preventDefault();
+        function showTab(name, e) {                          // Fix #12 — explicit event param
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + name).classList.add('active');
-            setActiveNav(name);
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            if (e && e.target) e.target.classList.add('active');
             if (name === 'profile') loadProfile();
             if (name === 'attendance') loadAttendance();
             if (name === 'marks') loadMarks();
-        }
-
-        function valueOrDash(value) {
-            return value === null || value === undefined || value === '' ? '-' : value;
-        }
-
-        function markPair(obtained, max) {
-            return `${valueOrDash(obtained)} / ${valueOrDash(max)}`;
         }
 
         async function loadProfile() {
             const res = await api('/student/profile');
             if (!res) return;
             const p = await res.json();
-            const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Student';
-
-            document.getElementById('profile-photo').src = p.photo_url || DEFAULT_STUDENT_PHOTO;
-            document.getElementById('profile-photo').onerror = () => { document.getElementById('profile-photo').src = DEFAULT_STUDENT_PHOTO; };
-            document.getElementById('profile-name').textContent = fullName;
-            document.getElementById('profile-program').textContent = p.branch_code ? `Branch ${p.branch_code}` : 'Student';
-            document.getElementById('profile-roll').textContent = valueOrDash(p.roll_number);
-            document.getElementById('profile-year').textContent = valueOrDash(p.current_year);
-            document.getElementById('profile-semester').textContent = valueOrDash(p.current_semester);
-            document.getElementById('profile-section').textContent = valueOrDash(p.section);
-            document.getElementById('profile-category').textContent = `Category ${valueOrDash(p.category)}`;
-            document.getElementById('profile-area').textContent = `Area ${valueOrDash(p.area)}`;
-
-            const details = [
-                ['Username', p.username],
-                ['Date of Birth', p.dob],
-                ['Email', p.email],
-                ['Phone', p.phone],
-                ['Father Name', p.father_name],
-                ['Enrollment Date', p.enrollment_date],
-                ['Blood Group', p.blood_group],
-                ['Mentor', p.mentor_name],
-            ];
-            document.getElementById('profile-details').innerHTML = details.map(([label, value]) => `
-                <div class="detail-list"><span>${esc(label)}</span><strong>${esc(valueOrDash(value))}</strong></div>
-            `).join('');
+            document.getElementById('profile-table').innerHTML = `
+                <tr><td style="font-weight:600;width:150px;">Username</td><td>${esc(p.username)}</td></tr>
+                <tr><td style="font-weight:600;">Name</td><td>${esc(p.first_name)} ${esc(p.last_name)}</td></tr>
+                <tr><td style="font-weight:600;">Date of Birth</td><td>${esc(p.dob)}</td></tr>
+                <tr><td style="font-weight:600;">Email</td><td>${esc(p.email) || '—'}</td></tr>
+                <tr><td style="font-weight:600;">Phone</td><td>${esc(p.phone) || '—'}</td></tr>
+                <tr><td style="font-weight:600;">Address</td><td>${esc(p.address) || '—'}</td></tr>
+                <tr><td style="font-weight:600;">Enrollment Date</td><td>${esc(p.enrollment_date) || '—'}</td></tr>
+            `;
         }
 
         async function loadAttendance() {
@@ -190,11 +103,8 @@
             const data = await res.json();
             document.getElementById('attendance-table').innerHTML = data.map(a => `
                 <tr>
-                    <td>${esc(a.course_code)}</td>
-                    <td>${esc(a.course_name)}</td>
-                    <td>${esc(a.total_periods)}</td>
-                    <td>${esc(a.present)}</td>
-                    <td>${esc(a.absent)}</td>
+                    <td>${esc(a.course_code)}</td><td>${esc(a.course_name)}</td>
+                    <td>${esc(a.total_classes)}</td><td>${esc(a.present)}</td><td>${esc(a.absent)}</td>
                     <td><span class="badge ${a.percentage >= 75 ? 'badge-success' : 'badge-danger'}">${esc(a.percentage)}%</span></td>
                 </tr>
             `).join('') || '<tr><td colspan="6">No attendance records.</td></tr>';
@@ -203,23 +113,14 @@
         async function loadMarks() {
             const res = await api('/student/marks');
             if (!res) return;
-            const report = await res.json();
-            const subjects = report.subjects || [];
-
-            document.getElementById('marks-summary').innerHTML = `
-                <div class="stat-card"><div class="stat-value">${esc(report.sgpa || 0)}</div><div class="stat-label">SGPA</div></div>
-                <div class="stat-card"><div class="stat-value">${esc(report.sessional_percentage || 0)}%</div><div class="stat-label">Sessional Percentage</div></div>
-                <div class="stat-card"><div class="stat-value">${esc(report.total_credits || 0)}</div><div class="stat-label">Credits</div></div>
-            `;
-
-            document.getElementById('marks-table').innerHTML = subjects.map(s => `
+            const data = await res.json();
+            document.getElementById('marks-table').innerHTML = data.map(m => `
                 <tr>
-                    <td><strong>${esc(s.subject_code)}</strong><br><span class="muted">${esc(s.subject_name)}</span></td>
-                    <td>${esc(markPair(s.int1_secured, s.int1_max))}<br>${esc(markPair(s.int2_secured, s.int2_max))}</td>
-                    <td>${esc(markPair(s.asst1_secured, s.asst1_max))}<br>${esc(markPair(s.asst2_secured, s.asst2_max))}<br>${esc(markPair(s.asst3_secured, s.asst3_max))}</td>
-                    <td>${esc(markPair(s.quiz1_secured, s.quiz1_max))}<br>${esc(markPair(s.quiz2_secured, s.quiz2_max))}<br>${esc(markPair(s.quiz3_secured, s.quiz3_max))}</td>
-                    <td><span class="badge badge-info">${esc(markPair(s.sessional_secured, s.sessional_max))}</span></td>
-                    <td><span class="badge ${s.grade === 'F' ? 'badge-danger' : 'badge-success'}">${esc(valueOrDash(s.grade))}</span></td>
+                    <td>${esc(m.course_code)} — ${esc(m.course_name)}</td>
+                    <td>${esc(m.assessment_name)}</td>
+                    <td><span class="badge badge-info">${esc(m.assessment_type)}</span></td>
+                    <td>${esc(m.marks_obtained)}</td><td>${esc(m.max_marks)}</td>
+                    <td><span class="badge ${m.percentage >= 50 ? 'badge-success' : 'badge-danger'}">${esc(m.percentage)}%</span></td>
                 </tr>
             `).join('') || '<tr><td colspan="6">No marks available.</td></tr>';
         }
@@ -233,10 +134,12 @@
             }
             const res = await api('/auth/change-password', {
                 method: 'POST',
-                body: JSON.stringify({ new_password: new_pwd })
+                body: JSON.stringify({
+                    new_password: new_pwd
+                })
             });
             if (!res) return;
-            if (res.ok) { showAlert('alert', 'Password changed'); e.target.reset(); }
+            if (res.ok) { showAlert('alert', 'Password changed!'); e.target.reset(); }
             else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
         });
 

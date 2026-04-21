@@ -1,38 +1,13 @@
 # Student Management System (SMS)
 
-A full-stack Student Management System built with **FastAPI** + **MySQL** + **HTML/CSS/JS** for a **Database Management Systems** course project. The app demonstrates database design, integrity constraints, role-based workflows, and reporting on top of a relational schema.
+A full-stack Student Management System built with **FastAPI** + **MySQL** + **HTML/CSS/JS**.
 
 ## Features
 - **Role-based auth**: Admin, Teacher, Student (JWT + bcrypt)
-- **Admin**: CRUD for students, teachers, courses; enrollment & teacher-course assignment; reset student passwords
-- **Teacher**: View assigned courses, mark attendance with one-click checkbox actions, create assessments, enter marks
+- **Admin**: CRUD for students, teachers, courses; enrollment & teacher-course assignment
+- **Teacher**: View assigned courses, mark attendance, create assessments, enter marks
 - **Student**: View profile, attendance %, marks per assessment, change password
 - **Auto password**: Default password = DOB (DDMMYYYY), forced change on first login
-
-## DBMS Course Alignment
-- **Normalized entity design**: `users` stores authentication, while `students` and `teachers` store profile data in separate tables.
-- **One-to-one relationships**: `users -> students` and `users -> teachers`.
-- **Many-to-many relationships**:
-  - `students <-> courses` through `enrollments`
-  - `teachers <-> courses` through `teacher_courses`
-- **Integrity constraints**:
-  - unique usernames, roll numbers, course codes
-  - unique student-course enrollment
-  - unique attendance slot per `enrollment_id + date + period + sub_period`
-- **Controlled domains and validation**:
-  - enums for attendance status, gender, admission category, assessment type
-  - Pydantic validation for payload rules such as password strength, phone format, credits, and period range
-- **Database-backed workflows and reports**:
-  - attendance summary and per-slot attendance grid
-  - section-wise student assignment through roll number logic
-  - marks entry, assessment limits, and report-style student views
-
-## Recommended Demo Focus For DBMS Submission
-1. Show the schema and explain why auth is separated from student and teacher profiles.
-2. Demonstrate many-to-many mappings by enrolling a student in a course and assigning a teacher to that course.
-3. Show attendance uniqueness by marking a date/period/sub-period slot and then updating the same slot.
-4. Show validation and integrity rules by triggering one rejected case, such as duplicate assignment or invalid credits.
-5. Show reporting queries through dashboard stats, attendance summary, and marks views.
 
 ## Quick Start (For Demo)
 Run the following steps to quickly start the project:
