@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Edit - Admin Console</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@5/dist/jsuites.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@5/dist/jspreadsheet.min.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/jsuites@5/dist/jsuites.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@5/dist/index.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 20px; font-family: 'Inter', sans-serif;
+            height: 100vh; display: flex; flex-direction: column;
+            background: #f8f9fa; color: #1a1a2e;
+        }
+
+        /* ── Header bar ── */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px; padding: 12px 20px;
+            background: #fff; border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .header h1 { margin: 0; font-size: 22px; font-weight: 700; color: #1a1a2e; }
+        .actions { display: flex; gap: 12px; align-items: center; }
+        #bulk-status {
+            padding: 8px 16px; border-radius: 6px; font-size: 13px;
+            font-weight: 500; background: #e8f5e9; color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        .btn-save {
+            padding: 10px 22px; background: #22c77a; color: #fff;
+            border: none; border-radius: 8px; font-weight: 700;
+            font-size: 14px; cursor: pointer; transition: background .2s;
+        }
+        .btn-save:hover { background: #1aad6a; }
+
+        /* ── Spreadsheet container ── */
+        #spreadsheet {
+            flex: 1; border-radius: 10px; overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            background: #fff;
+        }
+
+        /* ── jspreadsheet light-theme overrides ── */
+        .jss, .jss table { background: #fff !important; color: #1a1a2e !important; }
+
+        .jss thead td {
+            background: #f1f3f5 !important; color: #495057 !important;
+            border-color: #dee2e6 !important;
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .jss tbody td {
+            background: #fff !important; color: #212529 !important;
+            border-color: #e9ecef !important; font-size: 13px;
+        }
+
+        .jss tbody tr:nth-child(even) td { background: #f8f9fa !important; }
+
+        .jss tbody td:hover { background: #e3f2fd !important; }
+
+        /* Selected / highlighted cells — light blue instead of dark */
+        .jss tbody td.selected,
+        .jss tbody td.highlight,
+        .jss td.jss_selected {
+            background: #d0e8ff !important; color: #0d47a1 !important;
+            border-color: #42a5f5 !important;
+        }
+
+        /* Row header (numbers) */
+        .jss thead td:first-child,
+        .jss tbody td:first-child {
+            background: #f1f3f5 !important; color: #868e96 !important;
+            font-weight: 600;
+        }
+
+        /* Corner drag handle */
+        .jss .jss_corner { background: #42a5f5 !important; border-color: #42a5f5 !important; }
+
+        /* Editor input */
+        .jss input, .jss textarea, .jss select {
+            background: #fff !important; color: #212529 !important;
+            border: 2px solid #42a5f5 !important; border-radius: 2px;
+        }
+
+        /* Success / error row feedback from save */
+        .row-created td { background: #e8f5e9 !important; color: #2e7d32 !important; }
+        .row-updated td { background: #e3f2fd !important; color: #1565c0 !important; }
+        .row-error td { background: #ffebee !important; color: #c62828 !important; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 id="bulk-title">Bulk Edit</h1>
+        <div class="actions">
+            <div id="bulk-status" style="background:#f0f0f0; border:1px solid #ddd;">Loading...</div>
+            <button class="btn-save" onclick="BulkEditor.save()">💾 Save All</button>
+        </div>
+    </div>
+    <div id="spreadsheet"></div>
+
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/bulk.js"></script>
+    <script>
+        // Check authentication
+        requireAuth('ADMIN');
+
+        // Extract entity from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const entity = urlParams.get('entity') || 'students';
+        
+        document.getElementById('bulk-title').textContent = `Bulk Edit — ${entity.charAt(0).toUpperCase() + entity.slice(1)}`;
+
+        // We override BulkEditor's open/close behavior so it doesn't try to manipulate the dashboard modal
+        BulkEditor.open = async function(entity) {
+            this._entity = entity;
+            const config = this.configs[entity];
+            if (!config) return;
+
+            document.getElementById('bulk-status').textContent = 'Loading data...';
+
+            await this._loadMeta();
+
+            const res = await api(config.fetchUrl);
+            const existingData = res ? await res.json() : [];
+
+            const dataRows = existingData.map(item => config.mapRow(item));
+
+            const emptyCols = config.columns.length;
+            for (let i = 0; i < 20; i++) {
+                dataRows.push(new Array(emptyCols).fill(''));
+            }
+
+            const columns = this._applyDropdowns(config);
+
+            const container = document.getElementById('spreadsheet');
+            container.innerHTML = '';
+
+            this._spreadsheet = jspreadsheet(container, {
+                worksheets: [{
+                    data: dataRows,
+                    columns: columns,
+                    minDimensions: [columns.length, 5],
+                    tableOverflow: true,
+                    tableWidth: '100%',
+                    tableHeight: `${window.innerHeight - 100}px`,
+                    defaultColWidth: 120,
+                    allowInsertRow: true,
+                    allowDeleteRow: true, // Allow deletion since it's a dedicated page
+                    allowInsertColumn: false,
+                    allowDeleteColumn: false,
+                    columnSorting: true, // Allow sorting
+                }],
+                contextMenu: function() { return false; },
+            });
+
+            this._worksheet = this._spreadsheet[0];
+            this._existingCount = existingData.length;
+
+            document.getElementById('bulk-status').textContent =
+                `${existingData.length} existing rows loaded. Scroll to bottom for new entries.`;
+        };
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            BulkEditor.open(entity);
+        });
+    </script>
+</body>
+</html>

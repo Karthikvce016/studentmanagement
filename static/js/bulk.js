@@ -1,7 +1,8 @@
-/* ── Bulk Editor — jspreadsheet CE controller ── */
+/* ── Bulk Editor — jspreadsheet CE v5 controller ── */
 
 const BulkEditor = {
-    _instance: null,
+    _spreadsheet: null,   // the spreadsheet container instance
+    _worksheet: null,     // the active worksheet (worksheets[0])
     _entity: null,
     _meta: {},    // dropdown source data cache
 
@@ -275,22 +276,27 @@ const BulkEditor = {
         const container = document.getElementById('spreadsheet');
         container.innerHTML = '';
 
-        this._instance = jspreadsheet(container, {
-            data: dataRows,
-            columns: columns,
-            minDimensions: [columns.length, 5],
-            tableOverflow: true,
-            tableWidth: '100%',
-            tableHeight: `${window.innerHeight - 200}px`,
-            defaultColWidth: 120,
-            allowInsertRow: true,
-            allowDeleteRow: false,
-            allowInsertColumn: false,
-            allowDeleteColumn: false,
-            contextMenu: false,
-            columnSorting: false,
-            style: {},
+        // v5 API: use worksheets array
+        this._spreadsheet = jspreadsheet(container, {
+            worksheets: [{
+                data: dataRows,
+                columns: columns,
+                minDimensions: [columns.length, 5],
+                tableOverflow: true,
+                tableWidth: '100%',
+                tableHeight: `${window.innerHeight - 200}px`,
+                defaultColWidth: 120,
+                allowInsertRow: true,
+                allowDeleteRow: false,
+                allowInsertColumn: false,
+                allowDeleteColumn: false,
+                columnSorting: false,
+            }],
+            contextMenu: function() { return false; },
         });
+
+        // v5: worksheets is an array, get first worksheet
+        this._worksheet = this._spreadsheet[0];
 
         // Track how many rows are existing (read-only IDs)
         this._existingCount = existingData.length;
@@ -302,22 +308,25 @@ const BulkEditor = {
     /** Close the bulk editor */
     close() {
         document.getElementById('bulkEditModal').classList.remove('active');
-        if (this._instance) {
-            jspreadsheet.destroy(document.getElementById('spreadsheet'));
-            this._instance = null;
+        const container = document.getElementById('spreadsheet');
+        if (this._spreadsheet) {
+            jspreadsheet.destroy(container);
+            this._spreadsheet = null;
+            this._worksheet = null;
         }
+        container.innerHTML = '';
     },
 
     /** Save all rows */
     async save() {
-        if (!this._instance || !this._entity) return;
+        if (!this._worksheet || !this._entity) return;
         const config = this.configs[this._entity];
         const statusEl = document.getElementById('bulk-status');
         statusEl.textContent = 'Saving...';
         statusEl.className = 'bulk-status';
 
-        // Gather all row data
-        const allData = this._instance.getData();
+        // v5: getData() on the worksheet instance
+        const allData = this._worksheet.getData();
 
         // Filter out completely empty rows
         const rows = [];
@@ -352,28 +361,40 @@ const BulkEditor = {
 
         // Apply row-level feedback
         if (data.results) {
-            // Reset all row styles first
-            const totalRows = allData.length;
             const totalCols = config.columns.length;
 
             data.results.forEach(result => {
                 const gridRow = rowIndices[result.row];
                 if (gridRow === undefined) return;
-                for (let c = 0; c < totalCols; c++) {
-                    const cellName = jspreadsheet.getColumnNameFromId([c, gridRow]);
-                    if (result.status === 'error') {
-                        this._instance.setStyle(cellName, 'background-color', '#ffe0e0');
-                    } else if (result.status === 'created') {
-                        this._instance.setStyle(cellName, 'background-color', '#e0ffe0');
-                    } else if (result.status === 'updated') {
-                        this._instance.setStyle(cellName, 'background-color', '#e0f0ff');
+
+                let bgColor, textColor;
+                if (result.status === 'error') {
+                    bgColor = 'rgba(255,70,87,0.25)';
+                    textColor = '#ffb6be';
+                } else if (result.status === 'created') {
+                    bgColor = 'rgba(34,199,122,0.2)';
+                    textColor = '#80f0b4';
+                } else if (result.status === 'updated') {
+                    bgColor = 'rgba(100,149,237,0.2)';
+                    textColor = '#a0c4ff';
+                }
+
+                if (bgColor) {
+                    for (let c = 0; c < totalCols; c++) {
+                        const cellId = BulkEditor._cellRef(c, gridRow);
+                        try {
+                            this._worksheet.setStyle(cellId, 'background-color', bgColor);
+                            this._worksheet.setStyle(cellId, 'color', textColor);
+                        } catch(e) { /* cell may not exist */ }
                     }
                 }
 
-                // Add error comment/tooltip on first cell of errored row
-                if (result.status === 'error') {
-                    const cellId = jspreadsheet.getColumnNameFromId([0, gridRow]);
-                    this._instance.setComments(cellId, result.message);
+                // Add error tooltip on first cell of errored row
+                if (result.status === 'error' && result.message) {
+                    try {
+                        const cellId = BulkEditor._cellRef(0, gridRow);
+                        this._worksheet.setComments(cellId, result.message);
+                    } catch(e) { /* ignore */ }
                 }
             });
         }
@@ -392,5 +413,16 @@ const BulkEditor = {
         if (s.errors) {
             statusEl.textContent += ' — hover over red cells to see error details';
         }
+    },
+
+    /** Convert col/row (0-indexed) to Excel-style cell ref like A1, B3, AA1 */
+    _cellRef(col, row) {
+        let letter = '';
+        let c = col;
+        while (c >= 0) {
+            letter = String.fromCharCode(65 + (c % 26)) + letter;
+            c = Math.floor(c / 26) - 1;
+        }
+        return letter + (row + 1);
     }
 };

@@ -50,6 +50,10 @@ def change_password_page(request: Request):
 def admin_dashboard_page(request: Request):
     return templates.TemplateResponse("admin/dashboard.html", {"request": request})
 
+@app.get("/admin/bulk-edit", response_class=HTMLResponse)
+def admin_bulk_edit_page(request: Request):
+    return templates.TemplateResponse("admin/bulk_edit.html", {"request": request})
+
 @app.get("/teacher/dashboard", response_class=HTMLResponse)
 def teacher_dashboard_page(request: Request):
     return templates.TemplateResponse("teacher/dashboard.html", {"request": request})
