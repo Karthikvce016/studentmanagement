@@ -14,16 +14,18 @@
             <a href="#" onclick="showTab('students', event)">Students</a>
             <a href="#" onclick="showTab('teachers', event)">Teachers</a>
             <a href="#" onclick="showTab('courses', event)">Courses</a>
+            <a href="#" onclick="showTab('offerings', event)">Offerings</a>
             <a href="#" onclick="showTab('enrollments', event)">Enrollments</a>
             <a href="#" onclick="showTab('assignments', event)">Assignments</a>
+            <a href="#" onclick="showTab('reports', event)">Reports</a>
             <a href="#" onclick="logout()">Logout</a>
         </div>
     </nav>
-    <div class="container">
+
+    <main class="container">
         <div id="alert" class="alert"></div>
 
-        <!-- Dashboard Tab -->
-        <div id="tab-dashboard" class="tab-content active">
+        <section id="tab-dashboard" class="tab-content active">
             <div class="page-header">
                 <div>
                     <p class="eyebrow">Admin Console</p>
@@ -34,72 +36,119 @@
                 <div class="stat-card"><div id="stat-students" class="stat-value">—</div><div class="stat-label">Students</div></div>
                 <div class="stat-card"><div id="stat-teachers" class="stat-value">—</div><div class="stat-label">Teachers</div></div>
                 <div class="stat-card"><div id="stat-courses" class="stat-value">—</div><div class="stat-label">Courses</div></div>
+                <div class="stat-card"><div id="stat-offerings" class="stat-value">—</div><div class="stat-label">Course Offerings</div></div>
                 <div class="stat-card"><div id="stat-sections" class="stat-value">—</div><div class="stat-label">Sections</div></div>
             </div>
-        </div>
+            <div class="panel" style="margin-top:16px;">
+                <h2 class="section-title" style="margin-bottom:12px;">DBMS Focus</h2>
+                <p class="helper-text">Lead the demo with normalized entities, offering-based mappings, uniqueness rules, audit history, and database-backed reports. The UI now exposes those layers directly instead of hiding them behind generic course CRUD.</p>
+            </div>
+        </section>
 
-        <!-- Students Tab -->
-        <div id="tab-students" class="tab-content">
+        <section id="tab-students" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Records</p><h1>Students</h1></div>
                 <button class="btn btn-primary" onclick="openModal('studentModal')">+ Add Student</button>
             </div>
             <div class="card table-wrapper">
-                <table><thead><tr><th>Roll Number</th><th>Name</th><th>Branch</th><th>DOB</th><th>Email</th><th>Phone</th><th>Actions</th></tr></thead>
-                <tbody id="students-table"></tbody></table>
+                <table>
+                    <thead><tr><th>Roll Number</th><th>Name</th><th>Branch</th><th>Section</th><th>DOB</th><th>Email</th><th>Actions</th></tr></thead>
+                    <tbody id="students-table"></tbody>
+                </table>
             </div>
-        </div>
+        </section>
 
-        <!-- Teachers Tab -->
-        <div id="tab-teachers" class="tab-content">
+        <section id="tab-teachers" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Faculty</p><h1>Teachers</h1></div>
                 <button class="btn btn-primary" onclick="openModal('teacherModal')">+ Add Teacher</button>
             </div>
             <div class="card table-wrapper">
-                <table><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>DOB</th><th>Email</th><th>Department</th><th>Actions</th></tr></thead>
-                <tbody id="teachers-table"></tbody></table>
+                <table>
+                    <thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Email</th><th>Department</th><th>Actions</th></tr></thead>
+                    <tbody id="teachers-table"></tbody>
+                </table>
             </div>
-        </div>
+        </section>
 
-        <!-- Courses Tab -->
-        <div id="tab-courses" class="tab-content">
+        <section id="tab-courses" class="tab-content">
             <div class="page-header">
-                <div><p class="eyebrow">Academics</p><h1>Courses</h1></div>
+                <div><p class="eyebrow">Catalog</p><h1>Courses</h1></div>
                 <button class="btn btn-primary" onclick="openModal('courseModal')">+ Add Course</button>
             </div>
             <div class="card table-wrapper">
-                <table><thead><tr><th>ID</th><th>Code</th><th>Name</th><th>Credits</th><th>Department</th><th>Actions</th></tr></thead>
-                <tbody id="courses-table"></tbody></table>
+                <table>
+                    <thead><tr><th>ID</th><th>Code</th><th>Name</th><th>Credits</th><th>Department</th><th>Actions</th></tr></thead>
+                    <tbody id="courses-table"></tbody>
+                </table>
             </div>
-        </div>
+        </section>
 
-        <!-- Enrollments Tab -->
-        <div id="tab-enrollments" class="tab-content">
+        <section id="tab-offerings" class="tab-content">
+            <div class="page-header">
+                <div><p class="eyebrow">Academic Delivery</p><h1>Course Offerings</h1></div>
+                <button class="btn btn-primary" onclick="openOfferingModal()">+ Add Offering</button>
+            </div>
+            <div class="card table-wrapper">
+                <table>
+                    <thead><tr><th>ID</th><th>Offering</th><th>Capacity</th><th>Active</th><th>Actions</th></tr></thead>
+                    <tbody id="offerings-table"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tab-enrollments" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Mappings</p><h1>Enrollments</h1></div>
                 <button class="btn btn-primary" onclick="openModal('enrollModal')">+ Enroll Student</button>
             </div>
             <div class="card table-wrapper">
-                <table><thead><tr><th>Student</th><th>Course</th><th>Enrolled Date</th><th>Actions</th></tr></thead>
-                <tbody id="enrollments-table"></tbody></table>
+                <table>
+                    <thead><tr><th>Student</th><th>Offering</th><th>Enrolled Date</th><th>Actions</th></tr></thead>
+                    <tbody id="enrollments-table"></tbody>
+                </table>
             </div>
-        </div>
+        </section>
 
-        <!-- Teacher Assignments Tab -->
-        <div id="tab-assignments" class="tab-content">
+        <section id="tab-assignments" class="tab-content">
             <div class="page-header">
-                <div><p class="eyebrow">Assignments</p><h1>Teacher-Course Assignments</h1></div>
+                <div><p class="eyebrow">Assignments</p><h1>Teacher Assignments</h1></div>
                 <button class="btn btn-primary" onclick="openModal('assignModal')">+ Assign Teacher</button>
             </div>
             <div class="card table-wrapper">
-                <table><thead><tr><th>Teacher</th><th>Course</th><th>Actions</th></tr></thead>
-                <tbody id="assignments-table"></tbody></table>
+                <table>
+                    <thead><tr><th>Teacher</th><th>Offering</th><th>Actions</th></tr></thead>
+                    <tbody id="assignments-table"></tbody>
+                </table>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <!-- Student Modal (Create) -->
+        <section id="tab-reports" class="tab-content">
+            <div class="page-header">
+                <div><p class="eyebrow">Reports</p><h1>DBMS Reports</h1></div>
+            </div>
+            <div class="panel" style="margin-bottom:16px;">
+                <div class="inline-form">
+                    <button class="btn btn-outline" onclick="loadReport('attendance-risk')">Attendance Risk</button>
+                    <button class="btn btn-outline" onclick="loadReport('course-toppers')">Course Toppers</button>
+                    <button class="btn btn-outline" onclick="loadReport('section-performance')">Section Performance</button>
+                    <button class="btn btn-outline" onclick="loadReport('pass-fail-summary')">Pass / Fail</button>
+                    <button class="btn btn-outline" onclick="loadReport('attendance-trend')">Attendance Trend</button>
+                </div>
+            </div>
+            <div class="panel" style="margin-bottom:16px;">
+                <h2 id="report-title" class="section-title" style="margin-bottom:8px;">Attendance Risk</h2>
+                <p id="report-description" class="helper-text">Students below the attendance threshold.</p>
+            </div>
+            <div class="card table-wrapper">
+                <table>
+                    <thead id="reports-head"></thead>
+                    <tbody id="reports-table"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
     <div id="studentModal" class="modal-overlay">
         <div class="modal">
             <h2>Add Student</h2>
@@ -118,7 +167,7 @@
                     </select>
                 </div>
                 <div class="form-group"><label>Email</label><input type="email" id="s_email"></div>
-                <div class="form-group"><label>Phone (10-15 digits)</label><input id="s_phone" pattern="\d{10,15}"></div>
+                <div class="form-group"><label>Phone</label><input id="s_phone" pattern="\d{10,15}"></div>
                 <div class="form-group"><label>Address</label><input id="s_address"></div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-outline" onclick="closeModal('studentModal')">Cancel</button>
@@ -128,7 +177,6 @@
         </div>
     </div>
 
-    <!-- Student Edit Modal (#17) -->
     <div id="editStudentModal" class="modal-overlay">
         <div class="modal">
             <h2>Edit Student</h2>
@@ -147,7 +195,6 @@
         </div>
     </div>
 
-    <!-- Teacher Modal (Create) -->
     <div id="teacherModal" class="modal-overlay">
         <div class="modal">
             <h2>Add Teacher</h2>
@@ -166,7 +213,6 @@
         </div>
     </div>
 
-    <!-- Teacher Edit Modal (#17) -->
     <div id="editTeacherModal" class="modal-overlay">
         <div class="modal">
             <h2>Edit Teacher</h2>
@@ -185,7 +231,6 @@
         </div>
     </div>
 
-    <!-- Course Modal (Create) -->
     <div id="courseModal" class="modal-overlay">
         <div class="modal">
             <h2>Add Course</h2>
@@ -202,7 +247,6 @@
         </div>
     </div>
 
-    <!-- Course Edit Modal (#17) -->
     <div id="editCourseModal" class="modal-overlay">
         <div class="modal">
             <h2>Edit Course</h2>
@@ -219,17 +263,56 @@
         </div>
     </div>
 
-    <!-- Enroll Modal -->
+    <div id="offeringModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Add Course Offering</h2>
+            <form id="offeringForm">
+                <div class="form-group"><label>Course</label><select id="o_course"></select></div>
+                <div class="form-group"><label>Academic Year</label><input type="number" id="o_year" min="2000" max="2100" value="2026" required></div>
+                <div class="form-group"><label>Semester</label><input type="number" id="o_semester" min="1" max="8" value="3" required></div>
+                <div class="form-group"><label>Section</label><select id="o_section"></select></div>
+                <div class="form-group"><label>Capacity</label><input type="number" id="o_capacity" min="1" max="500" value="65"></div>
+                <div class="form-group"><label>Start Date</label><input type="date" id="o_start"></div>
+                <div class="form-group"><label>End Date</label><input type="date" id="o_end"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('offeringModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="editOfferingModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Edit Course Offering</h2>
+            <form id="editOfferingForm">
+                <input type="hidden" id="eo_id">
+                <div class="form-group"><label>Academic Year</label><input type="number" id="eo_year" min="2000" max="2100" required></div>
+                <div class="form-group"><label>Semester</label><input type="number" id="eo_semester" min="1" max="8" required></div>
+                <div class="form-group"><label>Section</label><select id="eo_section"></select></div>
+                <div class="form-group"><label>Capacity</label><input type="number" id="eo_capacity" min="1" max="500"></div>
+                <div class="form-group"><label>Start Date</label><input type="date" id="eo_start"></div>
+                <div class="form-group"><label>End Date</label><input type="date" id="eo_end"></div>
+                <div class="form-group"><label>Status</label>
+                    <select id="eo_active">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('editOfferingModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="enrollModal" class="modal-overlay">
         <div class="modal">
-            <h2>Enroll Student in Course</h2>
+            <h2>Enroll Student in Offering</h2>
             <form id="enrollForm">
-                <div class="form-group"><label>Student</label>
-                    <select id="e_student"><option value="">Select student...</option></select>
-                </div>
-                <div class="form-group"><label>Course</label>
-                    <select id="e_course"><option value="">Select course...</option></select>
-                </div>
+                <div class="form-group"><label>Student</label><select id="e_student"></select></div>
+                <div class="form-group"><label>Offering</label><select id="e_offering"></select></div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-outline" onclick="closeModal('enrollModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Enroll</button>
@@ -238,17 +321,12 @@
         </div>
     </div>
 
-    <!-- Assign Teacher Modal -->
     <div id="assignModal" class="modal-overlay">
         <div class="modal">
-            <h2>Assign Teacher to Course</h2>
+            <h2>Assign Teacher to Offering</h2>
             <form id="assignForm">
-                <div class="form-group"><label>Teacher</label>
-                    <select id="a_teacher"><option value="">Select teacher...</option></select>
-                </div>
-                <div class="form-group"><label>Course</label>
-                    <select id="a_course"><option value="">Select course...</option></select>
-                </div>
+                <div class="form-group"><label>Teacher</label><select id="a_teacher"></select></div>
+                <div class="form-group"><label>Offering</label><select id="a_offering"></select></div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-outline" onclick="closeModal('assignModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Assign</button>
@@ -261,45 +339,152 @@
     <script>
         requireAuth('ADMIN');
 
-        // Tab switching — Fix #12 (explicit event param)
+        const reportConfigs = {
+            'attendance-risk': {
+                title: 'Attendance Risk',
+                description: 'Students below the attendance threshold.',
+                endpoint: '/admin/reports/attendance-risk',
+                columns: ['Student', 'Offering', 'Section', 'Attendance %', 'Total Periods'],
+                row: (item) => [
+                    `${item.student_name} (${item.roll_number})`,
+                    item.offering_label,
+                    item.section || '—',
+                    `${item.percentage}%`,
+                    item.total_periods
+                ]
+            },
+            'course-toppers': {
+                title: 'Course Toppers',
+                description: 'Highest sessional performer for each course offering.',
+                endpoint: '/admin/reports/course-toppers',
+                columns: ['Offering', 'Student', 'Sessional', 'Percentage'],
+                row: (item) => [
+                    item.offering_label,
+                    `${item.student_name} (${item.roll_number})`,
+                    item.sessional,
+                    `${item.percentage}%`
+                ]
+            },
+            'section-performance': {
+                title: 'Section Performance',
+                description: 'Average attendance and sessional percentage by section.',
+                endpoint: '/admin/reports/section-performance',
+                columns: ['Section', 'Branch', 'Students', 'Avg Attendance %', 'Avg Sessional %'],
+                row: (item) => [
+                    item.section_name,
+                    item.branch_code,
+                    item.student_count,
+                    `${item.avg_attendance_percentage}%`,
+                    `${item.avg_sessional_percentage}%`
+                ]
+            },
+            'pass-fail-summary': {
+                title: 'Pass / Fail Summary',
+                description: 'Offering-level sessional pass rate summary.',
+                endpoint: '/admin/reports/pass-fail-summary',
+                columns: ['Offering', 'Passed', 'Failed', 'Pass Rate'],
+                row: (item) => [
+                    item.offering_label,
+                    item.passed,
+                    item.failed,
+                    `${item.pass_rate}%`
+                ]
+            },
+            'attendance-trend': {
+                title: 'Attendance Trend',
+                description: 'Monthly attendance totals and present percentage.',
+                endpoint: '/admin/reports/attendance-trend',
+                columns: ['Month', 'Present', 'Total', 'Percentage'],
+                row: (item) => [
+                    item.month,
+                    item.present,
+                    item.total,
+                    `${item.percentage}%`
+                ]
+            }
+        };
+
         function showTab(name, e) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            if (e) e.preventDefault();
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.getElementById('tab-' + name).classList.add('active');
-            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            document.querySelectorAll('.nav-links a').forEach(link => link.classList.remove('active'));
             if (e && e.target) e.target.classList.add('active');
             if (name === 'dashboard') loadStats();
             if (name === 'students') loadStudents();
             if (name === 'teachers') loadTeachers();
             if (name === 'courses') loadCourses();
+            if (name === 'offerings') loadOfferings();
             if (name === 'enrollments') loadEnrollments();
             if (name === 'assignments') loadAssignments();
+            if (name === 'reports') loadReport('attendance-risk');
         }
 
-        // Load data — all use esc() for XSS prevention (#1)
+        async function fetchSections() {
+            const res = await api('/admin/sections');
+            if (!res) return [];
+            return res.json();
+        }
+
+        async function fetchCourses() {
+            const res = await api('/admin/courses');
+            if (!res) return [];
+            return res.json();
+        }
+
+        async function populateOfferingSelect(selectId, includeBlank = false, selectedValue = '') {
+            const [courses, sections] = await Promise.all([fetchCourses(), fetchSections()]);
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            const options = [];
+            if (includeBlank) {
+                options.push('<option value="">Shared / All Sections</option>');
+            }
+            sections.forEach(section => {
+                options.push(`<option value="${esc(section.id)}">${esc(`${section.branch_code}-${section.name} (${section.year})`)}</option>`);
+            });
+            select.innerHTML = options.join('');
+            if (selectedValue !== undefined && selectedValue !== null) {
+                select.value = String(selectedValue);
+            }
+
+            const courseSelectId = selectId === 'o_section' ? 'o_course' : null;
+            if (courseSelectId) {
+                SearchSelect.populate('o_course', courses.map(course => ({
+                    value: course.id,
+                    label: `${course.code} — ${course.name}`,
+                    sub: `${course.credits} credits`
+                })));
+            }
+        }
+
         async function loadStats() {
             const res = await api('/admin/stats');
             if (!res) return;
-            const d = await res.json();
-            document.getElementById('stat-students').textContent = d.total_students;
-            document.getElementById('stat-teachers').textContent = d.total_teachers;
-            document.getElementById('stat-courses').textContent = d.total_courses;
-            document.getElementById('stat-sections').textContent = d.total_sections || 0;
+            const stats = await res.json();
+            document.getElementById('stat-students').textContent = stats.total_students;
+            document.getElementById('stat-teachers').textContent = stats.total_teachers;
+            document.getElementById('stat-courses').textContent = stats.total_courses;
+            document.getElementById('stat-offerings').textContent = stats.total_course_offerings || 0;
+            document.getElementById('stat-sections').textContent = stats.total_sections || 0;
         }
 
         async function loadStudents() {
             const res = await api('/admin/students');
             if (!res) return;
             const data = await res.json();
-            document.getElementById('students-table').innerHTML = data.map(s => `
+            document.getElementById('students-table').innerHTML = data.map(student => `
                 <tr>
-                    <td><strong>${esc(s.roll_number || s.username)}</strong></td>
-                    <td>${esc(s.first_name)} ${esc(s.last_name)}</td>
-                    <td><span class="badge badge-info">${esc(s.branch_code) || '—'}</span></td>
-                    <td>${esc(s.dob)}</td><td>${esc(s.email) || '—'}</td><td>${esc(s.phone) || '—'}</td>
+                    <td><strong>${esc(student.roll_number || student.username)}</strong></td>
+                    <td>${esc(student.first_name)} ${esc(student.last_name)}</td>
+                    <td><span class="badge badge-info">${esc(student.branch_code) || '—'}</span></td>
+                    <td>${esc(student.section_name) || '—'}</td>
+                    <td>${esc(student.dob)}</td>
+                    <td>${esc(student.email) || '—'}</td>
                     <td class="btn-group">
-                        <button class="btn btn-outline btn-sm" onclick='editStudent(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
-                        <button class="btn btn-primary btn-sm" onclick="resetStudentPassword(${esc(s.id)})">Reset Password</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteStudent(${esc(s.id)})">Delete</button>
+                        <button class="btn btn-outline btn-sm" onclick='editStudent(${JSON.stringify(student).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-primary btn-sm" onclick="resetStudentPassword(${esc(student.id)})">Reset Password</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteStudent(${esc(student.id)})">Delete</button>
                     </td>
                 </tr>
             `).join('');
@@ -309,15 +494,17 @@
             const res = await api('/admin/teachers');
             if (!res) return;
             const data = await res.json();
-            document.getElementById('teachers-table').innerHTML = data.map(t => `
+            document.getElementById('teachers-table').innerHTML = data.map(teacher => `
                 <tr>
-                    <td>${esc(t.id)}</td><td>${esc(t.username)}</td>
-                    <td>${esc(t.first_name)} ${esc(t.last_name)}</td>
-                    <td>${esc(t.dob)}</td><td>${esc(t.email) || '&mdash;'}</td><td>${esc(t.department) || '&mdash;'}</td>
+                    <td>${esc(teacher.id)}</td>
+                    <td>${esc(teacher.username)}</td>
+                    <td>${esc(teacher.first_name)} ${esc(teacher.last_name)}</td>
+                    <td>${esc(teacher.email) || '—'}</td>
+                    <td>${esc(teacher.department) || '—'}</td>
                     <td class="btn-group">
-                        <button class="btn btn-primary btn-sm" data-teacher-id="${esc(t.id)}" data-teacher-name="${esc(t.first_name)} ${esc(t.last_name)}" onclick="assignCourseFromButton(this)">+ Assign Course</button>
-                        <button class="btn btn-outline btn-sm" onclick='editTeacher(${JSON.stringify(t).replace(/'/g, "&#39;")})'>Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteTeacher(${esc(t.id)})">Delete</button>
+                        <button class="btn btn-primary btn-sm" data-teacher-id="${esc(teacher.id)}" data-teacher-name="${esc(teacher.first_name)} ${esc(teacher.last_name)}" onclick="assignOfferingFromButton(this)">+ Assign Offering</button>
+                        <button class="btn btn-outline btn-sm" onclick='editTeacher(${JSON.stringify(teacher).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTeacher(${esc(teacher.id)})">Delete</button>
                     </td>
                 </tr>
             `).join('');
@@ -327,14 +514,39 @@
             const res = await api('/admin/courses');
             if (!res) return;
             const data = await res.json();
-            document.getElementById('courses-table').innerHTML = data.map(c => `
+            document.getElementById('courses-table').innerHTML = data.map(course => `
                 <tr>
-                    <td>${esc(c.id)}</td><td>${esc(c.code)}</td><td>${esc(c.name)}</td>
-                    <td>${esc(c.credits)}</td><td>${esc(c.department) || '—'}</td>
+                    <td>${esc(course.id)}</td>
+                    <td>${esc(course.code)}</td>
+                    <td>${esc(course.name)}</td>
+                    <td>${esc(course.credits)}</td>
+                    <td>${esc(course.department) || '—'}</td>
                     <td class="btn-group">
-                        <button class="btn btn-primary btn-sm" data-course-id="${esc(c.id)}" data-course-name="${esc(c.code)} — ${esc(c.name)}" onclick="assignTeacherFromButton(this)">+ Assign Teacher</button>
-                        <button class="btn btn-outline btn-sm" onclick='editCourse(${JSON.stringify(c).replace(/'/g, "&#39;")})'>Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteCourse(${esc(c.id)})">Delete</button>
+                        <button class="btn btn-outline btn-sm" onclick='editCourse(${JSON.stringify(course).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCourse(${esc(course.id)})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadOfferings() {
+            const res = await api('/admin/course-offerings');
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('offerings-table').innerHTML = data.map(offering => `
+                <tr>
+                    <td>${esc(offering.id)}</td>
+                    <td>
+                        <strong>${esc(offering.course_code)}</strong><br>
+                        <span class="muted">${esc(offering.label)}</span>
+                    </td>
+                    <td>${esc(offering.capacity || '—')}</td>
+                    <td><span class="badge ${offering.is_active ? 'badge-success' : 'badge-danger'}">${offering.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td class="btn-group">
+                        <button class="btn btn-primary btn-sm" data-offering-id="${esc(offering.id)}" data-offering-label="${esc(offering.label)}" onclick="assignTeacherFromButton(this)">+ Assign Teacher</button>
+                        <button class="btn btn-outline btn-sm" onclick='openEnrollmentModal(${JSON.stringify(offering).replace(/'/g, "&#39;")})'>+ Enroll Student</button>
+                        <button class="btn btn-outline btn-sm" onclick='editOffering(${JSON.stringify(offering).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteOffering(${esc(offering.id)})">Delete</button>
                     </td>
                 </tr>
             `).join('');
@@ -344,12 +556,12 @@
             const res = await api('/admin/enrollments');
             if (!res) return;
             const data = await res.json();
-            document.getElementById('enrollments-table').innerHTML = data.map(e => `
+            document.getElementById('enrollments-table').innerHTML = data.map(enrollment => `
                 <tr>
-                    <td>${esc(e.student_name)} (ID: ${esc(e.student_id)})</td>
-                    <td>${esc(e.course_name)} [${esc(e.course_code)}] (ID: ${esc(e.course_id)})</td>
-                    <td>${esc(e.enrolled_date) || '—'}</td>
-                    <td><button class="btn btn-danger btn-sm" onclick="unenroll(${esc(e.student_id)}, ${esc(e.course_id)})">Remove</button></td>
+                    <td>${esc(enrollment.student_name)} (${esc(enrollment.roll_number)})</td>
+                    <td>${esc(enrollment.offering_label)}</td>
+                    <td>${esc(enrollment.enrolled_date) || '—'}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="unenroll(${esc(enrollment.student_id)}, ${esc(enrollment.offering_id)})">Remove</button></td>
                 </tr>
             `).join('');
         }
@@ -358,16 +570,97 @@
             const res = await api('/admin/teacher-assignments');
             if (!res) return;
             const data = await res.json();
-            document.getElementById('assignments-table').innerHTML = data.map(a => `
+            document.getElementById('assignments-table').innerHTML = data.map(assignment => `
                 <tr>
-                    <td>${esc(a.teacher_name)} (ID: ${esc(a.teacher_id)})</td>
-                    <td>${esc(a.course_name)} [${esc(a.course_code)}] (ID: ${esc(a.course_id)})</td>
-                    <td><button class="btn btn-danger btn-sm" onclick="unassign(${esc(a.teacher_id)}, ${esc(a.course_id)})">Remove</button></td>
+                    <td>${esc(assignment.teacher_name)} (ID: ${esc(assignment.teacher_id)})</td>
+                    <td>${esc(assignment.offering_label)}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="unassign(${esc(assignment.teacher_id)}, ${esc(assignment.offering_id)})">Remove</button></td>
                 </tr>
             `).join('');
         }
 
-        // ── Create actions ───────────────────────────────────
+        async function loadReport(reportKey) {
+            const config = reportConfigs[reportKey];
+            if (!config) return;
+            const res = await api(config.endpoint);
+            if (!res) return;
+            const rows = await res.json();
+            document.getElementById('report-title').textContent = config.title;
+            document.getElementById('report-description').textContent = config.description;
+            document.getElementById('reports-head').innerHTML = `<tr>${config.columns.map(col => `<th>${esc(col)}</th>`).join('')}</tr>`;
+            document.getElementById('reports-table').innerHTML = rows.map(item => `
+                <tr>${config.row(item).map(value => `<td>${esc(value)}</td>`).join('')}</tr>
+            `).join('') || `<tr><td colspan="${config.columns.length}">No rows returned.</td></tr>`;
+        }
+
+        async function openOfferingModal() {
+            const [courses, sections] = await Promise.all([fetchCourses(), fetchSections()]);
+            SearchSelect.populate('o_course', courses.map(course => ({
+                value: course.id,
+                label: `${course.code} — ${course.name}`,
+                sub: `${course.credits} credits`
+            })));
+            document.getElementById('o_section').innerHTML = ['<option value="">Shared / All Sections</option>']
+                .concat(sections.map(section => `<option value="${esc(section.id)}">${esc(`${section.branch_code}-${section.name} (${section.year})`)}</option>`))
+                .join('');
+            document.getElementById('o_year').value = new Date().getFullYear();
+            document.getElementById('o_semester').value = 1;
+            document.getElementById('o_capacity').value = 65;
+            document.getElementById('o_start').value = '';
+            document.getElementById('o_end').value = '';
+            openModal('offeringModal');
+        }
+
+        function editStudent(student) {
+            document.getElementById('es_id').value = student.id;
+            document.getElementById('es_first').value = student.first_name;
+            document.getElementById('es_last').value = student.last_name;
+            document.getElementById('es_email').value = student.email || '';
+            document.getElementById('es_phone').value = student.phone || '';
+            document.getElementById('es_address').value = student.address || '';
+            openModal('editStudentModal');
+        }
+
+        function editTeacher(teacher) {
+            document.getElementById('et_id').value = teacher.id;
+            document.getElementById('et_first').value = teacher.first_name;
+            document.getElementById('et_last').value = teacher.last_name;
+            document.getElementById('et_email').value = teacher.email || '';
+            document.getElementById('et_phone').value = teacher.phone || '';
+            document.getElementById('et_dept').value = teacher.department || '';
+            openModal('editTeacherModal');
+        }
+
+        function editCourse(course) {
+            document.getElementById('ec_id').value = course.id;
+            document.getElementById('ec_name').value = course.name;
+            document.getElementById('ec_credits').value = course.credits;
+            document.getElementById('ec_dept').value = course.department || '';
+            openModal('editCourseModal');
+        }
+
+        async function editOffering(offering) {
+            const sections = await fetchSections();
+            document.getElementById('eo_id').value = offering.id;
+            document.getElementById('eo_year').value = offering.academic_year;
+            document.getElementById('eo_semester').value = offering.semester;
+            document.getElementById('eo_capacity').value = offering.capacity || 65;
+            document.getElementById('eo_start').value = offering.start_date || '';
+            document.getElementById('eo_end').value = offering.end_date || '';
+            document.getElementById('eo_active').value = String(Boolean(offering.is_active));
+            document.getElementById('eo_section').innerHTML = ['<option value="">Shared / All Sections</option>']
+                .concat(sections.map(section => `<option value="${esc(section.id)}">${esc(`${section.branch_code}-${section.name} (${section.year})`)}</option>`))
+                .join('');
+            document.getElementById('eo_section').value = offering.section_id ? String(offering.section_id) : '';
+            openModal('editOfferingModal');
+        }
+
+        async function openEnrollmentModal(offering) {
+            await openModal('enrollModal', {
+                preOfferingId: offering.id,
+                offeringLabel: offering.label
+            });
+        }
 
         document.getElementById('studentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -385,8 +678,39 @@
             });
             if (!res) return;
             const data = await res.json();
-            if (res.ok) { showAlert('alert', data.message); closeModal('studentModal'); loadStudents(); loadStats(); e.target.reset(); }
-            else showAlert('alert', data.detail, 'error');
+            if (res.ok) {
+                showAlert('alert', data.message);
+                closeModal('studentModal');
+                loadStudents();
+                loadStats();
+                e.target.reset();
+            } else {
+                showAlert('alert', data.detail, 'error');
+            }
+        });
+
+        document.getElementById('editStudentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('es_id').value;
+            const res = await api(`/admin/students/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    first_name: document.getElementById('es_first').value,
+                    last_name: document.getElementById('es_last').value,
+                    email: document.getElementById('es_email').value || null,
+                    phone: document.getElementById('es_phone').value || null,
+                    address: document.getElementById('es_address').value || null
+                })
+            });
+            if (!res) return;
+            if (res.ok) {
+                showAlert('alert', 'Student updated');
+                closeModal('editStudentModal');
+                loadStudents();
+            } else {
+                const data = await res.json();
+                showAlert('alert', data.detail, 'error');
+            }
         });
 
         document.getElementById('teacherForm').addEventListener('submit', async (e) => {
@@ -404,90 +728,16 @@
             });
             if (!res) return;
             const data = await res.json();
-            if (res.ok) { showAlert('alert', data.message); closeModal('teacherModal'); loadTeachers(); loadStats(); e.target.reset(); }
-            else showAlert('alert', data.detail, 'error');
+            if (res.ok) {
+                showAlert('alert', data.message);
+                closeModal('teacherModal');
+                loadTeachers();
+                loadStats();
+                e.target.reset();
+            } else {
+                showAlert('alert', data.detail, 'error');
+            }
         });
-
-        document.getElementById('courseForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const res = await api('/admin/courses', {
-                method: 'POST',
-                body: JSON.stringify({
-                    code: document.getElementById('c_code').value,
-                    name: document.getElementById('c_name').value,
-                    credits: parseInt(document.getElementById('c_credits').value),
-                    department: document.getElementById('c_dept').value || null
-                })
-            });
-            if (!res) return;
-            const data = await res.json();
-            if (res.ok) { showAlert('alert', data.message); closeModal('courseModal'); loadCourses(); loadStats(); e.target.reset(); }
-            else showAlert('alert', data.detail, 'error');
-        });
-
-        document.getElementById('enrollForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const sid = document.getElementById('e_student').value;
-            const cid = document.getElementById('e_course').value;
-            if (!sid || !cid) { showAlert('alert', 'Please select both a student and a course.', 'error'); return; }
-            const res = await api(`/admin/enroll?student_id=${sid}&course_id=${cid}`, { method: 'POST' });
-            if (!res) return;
-            const data = await res.json();
-            if (res.ok) { showAlert('alert', data.message); closeModal('enrollModal'); loadEnrollments(); e.target.reset(); }
-            else showAlert('alert', data.detail, 'error');
-        });
-
-        document.getElementById('assignForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const tid = document.getElementById('a_teacher').value;
-            const cid = document.getElementById('a_course').value;
-            if (!tid || !cid) { showAlert('alert', 'Please select both a teacher and a course.', 'error'); return; }
-            const res = await api(`/admin/assign-teacher?teacher_id=${tid}&course_id=${cid}`, { method: 'POST' });
-            if (!res) return;
-            const data = await res.json();
-            if (res.ok) { showAlert('alert', data.message); closeModal('assignModal'); loadAssignments(); e.target.reset(); }
-            else showAlert('alert', data.detail, 'error');
-        });
-
-        // ── Edit actions (#17 — new edit modals and endpoints) ──
-
-        function editStudent(s) {
-            document.getElementById('es_id').value = s.id;
-            document.getElementById('es_first').value = s.first_name;
-            document.getElementById('es_last').value = s.last_name;
-            document.getElementById('es_email').value = s.email || '';
-            document.getElementById('es_phone').value = s.phone || '';
-            document.getElementById('es_address').value = s.address || '';
-            openModal('editStudentModal');
-        }
-
-        document.getElementById('editStudentForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('es_id').value;
-            const res = await api(`/admin/students/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    first_name: document.getElementById('es_first').value,
-                    last_name: document.getElementById('es_last').value,
-                    email: document.getElementById('es_email').value || null,
-                    phone: document.getElementById('es_phone').value || null,
-                    address: document.getElementById('es_address').value || null
-                })
-            });
-            if (!res) return;
-            if (res.ok) { showAlert('alert', 'Student updated'); closeModal('editStudentModal'); loadStudents(); }
-            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
-        });
-
-        function editTeacher(t) {
-            document.getElementById('et_id').value = t.id;
-            document.getElementById('et_first').value = t.first_name;
-            document.getElementById('et_last').value = t.last_name;
-            document.getElementById('et_email').value = t.email || '';
-            document.getElementById('et_phone').value = t.phone || '';
-            document.getElementById('et_dept').value = t.department || '';
-            openModal('editTeacherModal');
-        }
 
         document.getElementById('editTeacherForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -503,17 +753,39 @@
                 })
             });
             if (!res) return;
-            if (res.ok) { showAlert('alert', 'Teacher updated'); closeModal('editTeacherModal'); loadTeachers(); }
-            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+            if (res.ok) {
+                showAlert('alert', 'Teacher updated');
+                closeModal('editTeacherModal');
+                loadTeachers();
+            } else {
+                const data = await res.json();
+                showAlert('alert', data.detail, 'error');
+            }
         });
 
-        function editCourse(c) {
-            document.getElementById('ec_id').value = c.id;
-            document.getElementById('ec_name').value = c.name;
-            document.getElementById('ec_credits').value = c.credits;
-            document.getElementById('ec_dept').value = c.department || '';
-            openModal('editCourseModal');
-        }
+        document.getElementById('courseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await api('/admin/courses', {
+                method: 'POST',
+                body: JSON.stringify({
+                    code: document.getElementById('c_code').value,
+                    name: document.getElementById('c_name').value,
+                    credits: parseInt(document.getElementById('c_credits').value, 10),
+                    department: document.getElementById('c_dept').value || null
+                })
+            });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) {
+                showAlert('alert', data.message);
+                closeModal('courseModal');
+                loadCourses();
+                loadStats();
+                e.target.reset();
+            } else {
+                showAlert('alert', data.detail, 'error');
+            }
+        });
 
         document.getElementById('editCourseForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -522,21 +794,124 @@
                 method: 'PUT',
                 body: JSON.stringify({
                     name: document.getElementById('ec_name').value,
-                    credits: parseInt(document.getElementById('ec_credits').value),
+                    credits: parseInt(document.getElementById('ec_credits').value, 10),
                     department: document.getElementById('ec_dept').value || null
                 })
             });
             if (!res) return;
-            if (res.ok) { showAlert('alert', 'Course updated'); closeModal('editCourseModal'); loadCourses(); }
-            else { const d = await res.json(); showAlert('alert', d.detail, 'error'); }
+            if (res.ok) {
+                showAlert('alert', 'Course updated');
+                closeModal('editCourseModal');
+                loadCourses();
+            } else {
+                const data = await res.json();
+                showAlert('alert', data.detail, 'error');
+            }
         });
 
-        // ── Delete actions ───────────────────────────────────
+        document.getElementById('offeringForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await api('/admin/course-offerings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    course_id: parseInt(document.getElementById('o_course').value, 10),
+                    academic_year: parseInt(document.getElementById('o_year').value, 10),
+                    semester: parseInt(document.getElementById('o_semester').value, 10),
+                    section_id: document.getElementById('o_section').value ? parseInt(document.getElementById('o_section').value, 10) : null,
+                    capacity: parseInt(document.getElementById('o_capacity').value, 10),
+                    start_date: document.getElementById('o_start').value || null,
+                    end_date: document.getElementById('o_end').value || null
+                })
+            });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) {
+                showAlert('alert', data.message);
+                closeModal('offeringModal');
+                loadOfferings();
+                loadStats();
+                e.target.reset();
+            } else {
+                showAlert('alert', data.detail, 'error');
+            }
+        });
+
+        document.getElementById('editOfferingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('eo_id').value;
+            const res = await api(`/admin/course-offerings/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    academic_year: parseInt(document.getElementById('eo_year').value, 10),
+                    semester: parseInt(document.getElementById('eo_semester').value, 10),
+                    section_id: document.getElementById('eo_section').value ? parseInt(document.getElementById('eo_section').value, 10) : null,
+                    capacity: parseInt(document.getElementById('eo_capacity').value, 10),
+                    start_date: document.getElementById('eo_start').value || null,
+                    end_date: document.getElementById('eo_end').value || null,
+                    is_active: document.getElementById('eo_active').value === 'true'
+                })
+            });
+            if (!res) return;
+            if (res.ok) {
+                showAlert('alert', 'Course offering updated');
+                closeModal('editOfferingModal');
+                loadOfferings();
+            } else {
+                const data = await res.json();
+                showAlert('alert', data.detail, 'error');
+            }
+        });
+
+        document.getElementById('enrollForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const studentId = document.getElementById('e_student').value;
+            const offeringId = document.getElementById('e_offering').value;
+            if (!studentId || !offeringId) {
+                showAlert('alert', 'Please select both a student and an offering.', 'error');
+                return;
+            }
+            const res = await api(`/admin/enroll?student_id=${studentId}&offering_id=${offeringId}`, { method: 'POST' });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) {
+                showAlert('alert', data.message);
+                closeModal('enrollModal');
+                loadEnrollments();
+                e.target.reset();
+            } else {
+                showAlert('alert', data.detail, 'error');
+            }
+        });
+
+        document.getElementById('assignForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const teacherId = document.getElementById('a_teacher').value;
+            const offeringId = document.getElementById('a_offering').value;
+            if (!teacherId || !offeringId) {
+                showAlert('alert', 'Please select both a teacher and an offering.', 'error');
+                return;
+            }
+            const res = await api(`/admin/assign-teacher?teacher_id=${teacherId}&offering_id=${offeringId}`, { method: 'POST' });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) {
+                showAlert('alert', data.message);
+                closeModal('assignModal');
+                loadAssignments();
+                e.target.reset();
+            } else {
+                showAlert('alert', data.detail, 'error');
+            }
+        });
 
         async function deleteStudent(id) {
             if (!confirm('Delete this student?')) return;
             const res = await api(`/admin/students/${id}`, { method: 'DELETE' });
-            if (res && res.ok) { showAlert('alert', 'Student deleted'); loadStudents(); loadStats(); }
+            if (res && res.ok) {
+                showAlert('alert', 'Student deleted');
+                loadStudents();
+                loadStats();
+            }
         }
 
         async function resetStudentPassword(id) {
@@ -551,25 +926,51 @@
         async function deleteTeacher(id) {
             if (!confirm('Delete this teacher?')) return;
             const res = await api(`/admin/teachers/${id}`, { method: 'DELETE' });
-            if (res && res.ok) { showAlert('alert', 'Teacher deleted'); loadTeachers(); loadStats(); }
+            if (res && res.ok) {
+                showAlert('alert', 'Teacher deleted');
+                loadTeachers();
+                loadStats();
+            }
         }
+
         async function deleteCourse(id) {
             if (!confirm('Delete this course?')) return;
             const res = await api(`/admin/courses/${id}`, { method: 'DELETE' });
-            if (res && res.ok) { showAlert('alert', 'Course deleted'); loadCourses(); loadStats(); }
-        }
-        async function unenroll(sid, cid) {
-            if (!confirm('Remove enrollment?')) return;
-            const res = await api(`/admin/unenroll?student_id=${sid}&course_id=${cid}`, { method: 'DELETE' });
-            if (res && res.ok) { showAlert('alert', 'Enrollment removed'); loadEnrollments(); }
-        }
-        async function unassign(tid, cid) {
-            if (!confirm('Remove assignment?')) return;
-            const res = await api(`/admin/unassign-teacher?teacher_id=${tid}&course_id=${cid}`, { method: 'DELETE' });
-            if (res && res.ok) { showAlert('alert', 'Assignment removed'); loadAssignments(); }
+            if (res && res.ok) {
+                showAlert('alert', 'Course deleted');
+                loadCourses();
+                loadStats();
+            }
         }
 
-        // Initial load
+        async function deleteOffering(id) {
+            if (!confirm('Delete this course offering?')) return;
+            const res = await api(`/admin/course-offerings/${id}`, { method: 'DELETE' });
+            if (res && res.ok) {
+                showAlert('alert', 'Course offering deleted');
+                loadOfferings();
+                loadStats();
+            }
+        }
+
+        async function unenroll(studentId, offeringId) {
+            if (!confirm('Remove this enrollment?')) return;
+            const res = await api(`/admin/unenroll?student_id=${studentId}&offering_id=${offeringId}`, { method: 'DELETE' });
+            if (res && res.ok) {
+                showAlert('alert', 'Enrollment removed');
+                loadEnrollments();
+            }
+        }
+
+        async function unassign(teacherId, offeringId) {
+            if (!confirm('Remove this assignment?')) return;
+            const res = await api(`/admin/unassign-teacher?teacher_id=${teacherId}&offering_id=${offeringId}`, { method: 'DELETE' });
+            if (res && res.ok) {
+                showAlert('alert', 'Assignment removed');
+                loadAssignments();
+            }
+        }
+
         loadStats();
     </script>
 </body>

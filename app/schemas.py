@@ -1,19 +1,29 @@
-"""Pydantic schemas for request/response validation."""
+"""Pydantic schemas for request and response validation."""
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from datetime import date
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
 from app.models import (
-    AttendanceStatus, AssessmentType, Gender, AdmissionCategory, Category, Area,
-    MAX_PERIODS_PER_DAY, MAX_SUB_PERIODS
+    AdmissionCategory,
+    Area,
+    AssessmentType,
+    AttendanceStatus,
+    Category,
+    Gender,
+    MAX_PERIODS_PER_DAY,
+    MAX_SUB_PERIODS,
 )
 
 
 # ── Auth ───────────────────────────────────────────────
 
+
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=1)
+
 
 class LoginResponse(BaseModel):
     access_token: str
@@ -21,22 +31,22 @@ class LoginResponse(BaseModel):
     role: str
     must_change_password: bool
 
+
 class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
-    @field_validator('new_password')
+    @field_validator("new_password")
     @classmethod
-    def password_strength(cls, v):
-        if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters')
-        if v.isdigit():
-            raise ValueError('Password cannot be all digits')
-        if v.isalpha():
-            raise ValueError('Password must contain at least one number')
-        return v
+    def password_strength(cls, value: str) -> str:
+        if value.isdigit():
+            raise ValueError("Password cannot be all digits")
+        if value.isalpha():
+            raise ValueError("Password must contain at least one number")
+        return value
 
 
-# ── Section ────────────────────────────────────────────
+# ── Sections ───────────────────────────────────────────
+
 
 class SectionOut(BaseModel):
     id: int
@@ -48,16 +58,17 @@ class SectionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ── Student ────────────────────────────────────────────
+# ── Students ───────────────────────────────────────────
+
 
 class StudentCreate(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     dob: date
-    branch_code: str = Field(min_length=1, max_length=10)  # e.g. 733 for CSE
+    branch_code: str = Field(min_length=1, max_length=10)
     gender: Optional[Gender] = None
     email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(None, pattern=r'^\d{10,15}$')
+    phone: Optional[str] = Field(None, pattern=r"^\d{10,15}$")
     address: Optional[str] = Field(None, max_length=500)
     father_name: Optional[str] = Field(None, max_length=200)
     blood_group: Optional[str] = Field(None, max_length=10)
@@ -75,11 +86,12 @@ class StudentCreate(BaseModel):
     current_year: Optional[int] = Field(None, ge=1, le=4)
     current_semester: Optional[int] = Field(None, ge=1, le=8)
 
+
 class StudentUpdate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(None, pattern=r'^\d{10,15}$')
+    phone: Optional[str] = Field(None, pattern=r"^\d{10,15}$")
     address: Optional[str] = Field(None, max_length=500)
     gender: Optional[Gender] = None
     father_name: Optional[str] = Field(None, max_length=200)
@@ -98,6 +110,7 @@ class StudentUpdate(BaseModel):
     current_year: Optional[int] = Field(None, ge=1, le=4)
     current_semester: Optional[int] = Field(None, ge=1, le=8)
     photo_url: Optional[str] = Field(None, max_length=500)
+
 
 class StudentOut(BaseModel):
     id: int
@@ -137,22 +150,25 @@ class StudentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ── Teacher ────────────────────────────────────────────
+# ── Teachers ───────────────────────────────────────────
+
 
 class TeacherCreate(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     dob: date
     email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(None, pattern=r'^\d{10,15}$')
+    phone: Optional[str] = Field(None, pattern=r"^\d{10,15}$")
     department: Optional[str] = Field(None, max_length=200)
+
 
 class TeacherUpdate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(None, pattern=r'^\d{10,15}$')
+    phone: Optional[str] = Field(None, pattern=r"^\d{10,15}$")
     department: Optional[str] = Field(None, max_length=200)
+
 
 class TeacherOut(BaseModel):
     id: int
@@ -168,18 +184,21 @@ class TeacherOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ── Course ─────────────────────────────────────────────
+# ── Course Catalog ─────────────────────────────────────
+
 
 class CourseCreate(BaseModel):
-    code: str = Field(min_length=2, max_length=20, pattern=r'^[A-Za-z0-9]+$')
+    code: str = Field(min_length=2, max_length=20, pattern=r"^[A-Za-z0-9]+$")
     name: str = Field(min_length=1, max_length=200)
     credits: int = Field(default=3, ge=1, le=12)
     department: Optional[str] = Field(None, max_length=200)
+
 
 class CourseUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     credits: Optional[int] = Field(None, ge=1, le=12)
     department: Optional[str] = Field(None, max_length=200)
+
 
 class CourseOut(BaseModel):
     id: int
@@ -191,32 +210,78 @@ class CourseOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ── Course Offerings ───────────────────────────────────
+
+
+class CourseOfferingCreate(BaseModel):
+    course_id: int
+    academic_year: int = Field(ge=2000, le=2100)
+    semester: int = Field(ge=1, le=8)
+    section_id: Optional[int] = None
+    capacity: int = Field(default=65, ge=1, le=500)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+
+class CourseOfferingUpdate(BaseModel):
+    academic_year: Optional[int] = Field(None, ge=2000, le=2100)
+    semester: Optional[int] = Field(None, ge=1, le=8)
+    section_id: Optional[int] = None
+    capacity: Optional[int] = Field(None, ge=1, le=500)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_active: Optional[bool] = None
+
+
+class CourseOfferingOut(BaseModel):
+    id: int
+    course_id: int
+    course_code: str
+    course_name: str
+    credits: int
+    department: Optional[str] = None
+    academic_year: int
+    semester: int
+    section_id: Optional[int] = None
+    section_name: Optional[str] = None
+    branch_code: Optional[str] = None
+    capacity: Optional[int] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_active: bool = True
+    label: str
+
+
 # ── Attendance ─────────────────────────────────────────
+
 
 class AttendanceRecord(BaseModel):
     student_id: int
     status: AttendanceStatus
 
+
 class AttendanceMark(BaseModel):
-    course_id: int
+    offering_id: int
     date: date
     period: int = Field(ge=1, le=MAX_PERIODS_PER_DAY)
     sub_period: int = Field(default=1, ge=1, le=MAX_SUB_PERIODS)
     records: list[AttendanceRecord]
 
 
-# ── Assessment ─────────────────────────────────────────
+# ── Assessments ────────────────────────────────────────
+
 
 class AssessmentCreate(BaseModel):
-    course_id: int
+    offering_id: int
     name: str = Field(min_length=1, max_length=200)
     type: AssessmentType
     max_marks: Optional[float] = Field(None, gt=0, le=1000)
     date: Optional[date] = None
 
+
 class AssessmentOut(BaseModel):
     id: int
-    course_id: int
+    offering_id: int
     name: str
     type: str
     max_marks: float
@@ -227,21 +292,24 @@ class AssessmentOut(BaseModel):
 
 # ── Marks ──────────────────────────────────────────────
 
+
 class MarkEntry(BaseModel):
     student_id: int
     marks_obtained: float = Field(ge=0)
+
 
 class MarksUpload(BaseModel):
     assessment_id: int
     marks: list[MarkEntry]
 
 
-# ── Marks Report (mirrors VCE ERP marks view) ─────────
+# ── Marks Report ───────────────────────────────────────
+
 
 class SubjectMarksDetail(BaseModel):
-    """Single subject row in the VCE marks report table."""
     subject_code: str
     subject_name: str
+    offering_label: str
     int1_max: float = 30
     int1_secured: Optional[float] = None
     int2_max: float = 30
@@ -264,8 +332,8 @@ class SubjectMarksDetail(BaseModel):
     sub_credits: int = 3
     grade_points: Optional[int] = None
 
+
 class MarksReport(BaseModel):
-    """Full marks report for a student (one semester)."""
     student_name: str
     roll_number: str
     branch: str
@@ -280,10 +348,12 @@ class MarksReport(BaseModel):
     total_grade_points: int = 0
 
 
-# ── Dashboard Stats ───────────────────────────────────
+# ── Dashboard Stats ────────────────────────────────────
+
 
 class DashboardStats(BaseModel):
     total_students: int
     total_teachers: int
     total_courses: int
     total_sections: int = 0
+    total_course_offerings: int = 0
