@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMS — Admin Dashboard</title>
+    <title>SMS - Admin Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
+<body class="app-page admin-page">
     <nav class="nav-bar">
-        <span class="brand">SMS — Admin</span>
+        <span class="brand">Admin Console</span>
         <div class="nav-links">
             <a href="#" class="active" onclick="showTab('dashboard', event)">Dashboard</a>
             <a href="#" onclick="showTab('students', event)">Students</a>
@@ -24,18 +24,24 @@
 
         <!-- Dashboard Tab -->
         <div id="tab-dashboard" class="tab-content active">
-            <div class="page-header"><h1>Dashboard</h1></div>
+            <div class="page-header">
+                <div>
+                    <p class="eyebrow">Admin Console</p>
+                    <h1>Dashboard</h1>
+                </div>
+            </div>
             <div class="stats-grid">
                 <div class="stat-card"><div id="stat-students" class="stat-value">—</div><div class="stat-label">Students</div></div>
                 <div class="stat-card"><div id="stat-teachers" class="stat-value">—</div><div class="stat-label">Teachers</div></div>
                 <div class="stat-card"><div id="stat-courses" class="stat-value">—</div><div class="stat-label">Courses</div></div>
+                <div class="stat-card"><div id="stat-sections" class="stat-value">—</div><div class="stat-label">Sections</div></div>
             </div>
         </div>
 
         <!-- Students Tab -->
         <div id="tab-students" class="tab-content">
             <div class="page-header">
-                <h1>Students</h1>
+                <div><p class="eyebrow">Records</p><h1>Students</h1></div>
                 <button class="btn btn-primary" onclick="openModal('studentModal')">+ Add Student</button>
             </div>
             <div class="card table-wrapper">
@@ -47,7 +53,7 @@
         <!-- Teachers Tab -->
         <div id="tab-teachers" class="tab-content">
             <div class="page-header">
-                <h1>Teachers</h1>
+                <div><p class="eyebrow">Faculty</p><h1>Teachers</h1></div>
                 <button class="btn btn-primary" onclick="openModal('teacherModal')">+ Add Teacher</button>
             </div>
             <div class="card table-wrapper">
@@ -59,7 +65,7 @@
         <!-- Courses Tab -->
         <div id="tab-courses" class="tab-content">
             <div class="page-header">
-                <h1>Courses</h1>
+                <div><p class="eyebrow">Academics</p><h1>Courses</h1></div>
                 <button class="btn btn-primary" onclick="openModal('courseModal')">+ Add Course</button>
             </div>
             <div class="card table-wrapper">
@@ -71,7 +77,7 @@
         <!-- Enrollments Tab -->
         <div id="tab-enrollments" class="tab-content">
             <div class="page-header">
-                <h1>Enrollments</h1>
+                <div><p class="eyebrow">Mappings</p><h1>Enrollments</h1></div>
                 <button class="btn btn-primary" onclick="openModal('enrollModal')">+ Enroll Student</button>
             </div>
             <div class="card table-wrapper">
@@ -83,7 +89,7 @@
         <!-- Teacher Assignments Tab -->
         <div id="tab-assignments" class="tab-content">
             <div class="page-header">
-                <h1>Teacher-Course Assignments</h1>
+                <div><p class="eyebrow">Assignments</p><h1>Teacher-Course Assignments</h1></div>
                 <button class="btn btn-primary" onclick="openModal('assignModal')">+ Assign Teacher</button>
             </div>
             <div class="card table-wrapper">
@@ -277,6 +283,7 @@
             document.getElementById('stat-students').textContent = d.total_students;
             document.getElementById('stat-teachers').textContent = d.total_teachers;
             document.getElementById('stat-courses').textContent = d.total_courses;
+            document.getElementById('stat-sections').textContent = d.total_sections || 0;
         }
 
         async function loadStudents() {
@@ -291,6 +298,7 @@
                     <td>${esc(s.dob)}</td><td>${esc(s.email) || '—'}</td><td>${esc(s.phone) || '—'}</td>
                     <td class="btn-group">
                         <button class="btn btn-outline btn-sm" onclick='editStudent(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-primary btn-sm" onclick="resetStudentPassword(${esc(s.id)})">Reset Password</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteStudent(${esc(s.id)})">Delete</button>
                     </td>
                 </tr>
@@ -530,6 +538,16 @@
             const res = await api(`/admin/students/${id}`, { method: 'DELETE' });
             if (res && res.ok) { showAlert('alert', 'Student deleted'); loadStudents(); loadStats(); }
         }
+
+        async function resetStudentPassword(id) {
+            if (!confirm('Reset this student password to DOB (DDMMYYYY) and require a password change on next login?')) return;
+            const res = await api(`/admin/students/${id}/reset-password`, { method: 'POST' });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) showAlert('alert', data.message);
+            else showAlert('alert', data.detail, 'error');
+        }
+
         async function deleteTeacher(id) {
             if (!confirm('Delete this teacher?')) return;
             const res = await api(`/admin/teachers/${id}`, { method: 'DELETE' });

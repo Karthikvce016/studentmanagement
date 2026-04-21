@@ -3,14 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMS — Login</title>
+    <title>SMS - Login</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
+<body class="auth-page">
     <div class="login-wrapper">
+        <section class="auth-visual" aria-label="Portal preview">
+            <div class="auth-visual-card">
+                <img src="https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1100&q=80" alt="Students walking on campus">
+                <div class="auth-visual-copy">
+                    <p class="eyebrow">Student Portal</p>
+                    <h2>Academic records, attendance, and marks in one place.</h2>
+                    <p>Use your assigned username and password to continue.</p>
+                </div>
+            </div>
+        </section>
         <div class="login-card">
             <h1>Student Management System</h1>
-            <p>Sign in to your account</p>
+            <p>Sign in to your portal</p>
             <div id="alert" class="alert"></div>
             <form id="loginForm">
                 <div class="form-group">

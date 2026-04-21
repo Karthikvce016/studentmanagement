@@ -215,7 +215,7 @@ def seed():
                 status = AttendanceStatus.PRESENT if is_present else AttendanceStatus.ABSENT
                 db.add(Attendance(
                     enrollment_id=e.id, date=day,
-                    period=period, status=status
+                    period=period, sub_period=1, status=status
                 ))
 
         # ── Standardized Assessments (matching VCE structure) ──
