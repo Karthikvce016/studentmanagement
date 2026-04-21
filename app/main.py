@@ -58,10 +58,6 @@ def admin_bulk_edit_page(request: Request):
 def teacher_dashboard_page(request: Request):
     return templates.TemplateResponse("teacher/dashboard.html", {"request": request})
 
-@app.get("/teacher/bulk-edit", response_class=HTMLResponse)
-def teacher_bulk_edit_page(request: Request):
-    return templates.TemplateResponse("teacher/bulk_edit.html", {"request": request})
-
 @app.get("/student/dashboard", response_class=HTMLResponse)
 def student_dashboard_page(request: Request):
     return templates.TemplateResponse("student/dashboard.html", {"request": request})

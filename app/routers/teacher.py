@@ -28,7 +28,7 @@ from app.models import (
     TeacherCourse,
     User,
 )
-from app.schemas import AttendanceMark, AssessmentCreate, MarksUpload, BulkAttendanceUpdate
+from app.schemas import AttendanceMark, AssessmentCreate, MarksUpload
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/teacher", tags=["Teacher"])
@@ -387,35 +387,6 @@ def mark_attendance(data: AttendanceMark, db: Session = Depends(get_db), current
         data.date,
     )
     return {"message": f"Attendance marked for period {data.period}.{data.sub_period}"}
-
-
-@router.post("/attendance/bulk")
-def mark_attendance_bulk(data: BulkAttendanceUpdate, db: Session = Depends(get_db), current_user: User = Depends(teacher_required)):
-    teacher = get_teacher(current_user, db)
-    _verify_offering_access(teacher, data.offering_id, db)
-
-    updated_count = 0
-    for record in data.records:
-        enrollment = _get_enrollment_for_student(record.student_id, data.offering_id, db)
-        _upsert_attendance(
-            enrollment=enrollment,
-            teacher_id=teacher.id,
-            att_date=data.date,
-            period=record.period,
-            sub_period=1,
-            status=record.status,
-            db=db,
-        )
-        updated_count += 1
-
-    db.commit()
-    logger.info(
-        "Teacher %s bulk marked attendance for offering %d on %s",
-        current_user.username,
-        data.offering_id,
-        data.date,
-    )
-    return {"message": f"Bulk attendance marked successfully. Updated {updated_count} records."}
 
 
 @router.get("/attendance/{offering_id}")
