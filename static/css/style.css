@@ -1057,15 +1057,15 @@ select.attendance-select {
     border: 1px solid var(--border);
 }
 
-/* Override jspreadsheet v5 to match dark theme */
-.bulk-spreadsheet .jss,
-.bulk-spreadsheet .jss table {
-    background: #0e0d0f !important;
-    color: var(--text) !important;
-    border-color: var(--border) !important;
+/* Override jspreadsheet to match dark theme */
+.bulk-spreadsheet .jexcel {
+    background: #0e0d0f;
+    color: var(--text);
+    border-color: var(--border);
 }
 
-.bulk-spreadsheet .jss thead td {
+.bulk-spreadsheet .jexcel thead td,
+.bulk-spreadsheet .jexcel thead th {
     background: #1c171b !important;
     color: var(--text-muted) !important;
     border-color: var(--border) !important;
@@ -1074,47 +1074,31 @@ select.attendance-select {
     text-transform: uppercase;
 }
 
-.bulk-spreadsheet .jss tbody td {
-    background: #0e0d0f !important;
-    color: var(--text) !important;
-    border-color: var(--border) !important;
+.bulk-spreadsheet .jexcel tbody td {
+    background: #0e0d0f;
+    color: var(--text);
+    border-color: var(--border);
 }
 
-.bulk-spreadsheet .jss tbody td:hover {
-    background: #1a1519 !important;
+.bulk-spreadsheet .jexcel tbody td:hover {
+    background: #1a1519;
 }
 
-.bulk-spreadsheet .jss tbody td.selected,
-.bulk-spreadsheet .jss tbody td.highlight {
+.bulk-spreadsheet .jexcel tbody td.selected,
+.bulk-spreadsheet .jexcel tbody td.highlight {
     background: #2a1720 !important;
     border-color: var(--primary) !important;
 }
 
-.bulk-spreadsheet .jss .jss_corner {
-    background: var(--primary) !important;
-    border-color: var(--primary) !important;
+.bulk-spreadsheet .jexcel_corner {
+    background: var(--primary);
+    border-color: var(--primary);
 }
 
-/* Row/column header cells */
-.bulk-spreadsheet .jss thead td:first-child,
-.bulk-spreadsheet .jss tbody td:first-child {
+/* Row header cells (numbers on the left) */
+.bulk-spreadsheet .jexcel > thead > tr > td:first-child,
+.bulk-spreadsheet .jexcel > tbody > tr > td:first-child {
     background: #141215 !important;
     color: var(--text-muted) !important;
-}
-
-/* Dropdown & calendar popups */
-.jss .jss_dropdown,
-.jss .jcalendar {
-    background: #1a1519 !important;
-    color: var(--text) !important;
-    border-color: var(--border) !important;
-}
-
-/* Input editor inside cells */
-.bulk-spreadsheet .jss .jss_editor input,
-.bulk-spreadsheet .jss .jss_editor textarea {
-    background: #1a1519 !important;
-    color: var(--text) !important;
-    border: 1px solid var(--primary) !important;
 }
 
