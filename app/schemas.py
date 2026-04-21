@@ -268,6 +268,18 @@ class AttendanceMark(BaseModel):
     records: list[AttendanceRecord]
 
 
+class BulkStudentAttendance(BaseModel):
+    student_id: int
+    period: int = Field(ge=1, le=MAX_PERIODS_PER_DAY)
+    status: AttendanceStatus
+
+
+class BulkAttendanceUpdate(BaseModel):
+    offering_id: int
+    date: date
+    records: list[BulkStudentAttendance]
+
+
 # ── Assessments ────────────────────────────────────────
 
 
