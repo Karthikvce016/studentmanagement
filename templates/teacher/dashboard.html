@@ -406,7 +406,8 @@
                     <td><span class="badge badge-info">${esc(assessment.type)}</span></td>
                     <td>${esc(assessment.max_marks)}</td>
                     <td>${esc(assessment.date) || '-'}</td>
-                    <td><button class="btn btn-primary btn-sm" data-assessment-id="${esc(assessment.id)}" data-assessment-name="${esc(assessment.name)}" data-max-marks="${esc(assessment.max_marks)}" onclick="openMarksFromButton(this)">Enter Marks</button></td>
+                    <td><button class="btn btn-outline btn-sm" data-assessment-id="${esc(assessment.id)}" data-assessment-name="${esc(assessment.name)}" data-max-marks="${esc(assessment.max_marks)}" onclick="openBulkMarksFromButton(this)">📊 Bulk Edit</button>
+                    <button class="btn btn-primary btn-sm" data-assessment-id="${esc(assessment.id)}" data-assessment-name="${esc(assessment.name)}" data-max-marks="${esc(assessment.max_marks)}" onclick="openMarksFromButton(this)">Enter Marks</button></td>
                 </tr>
             `).join('') || '<tr><td colspan="5">No assessments yet.</td></tr>';
         }
@@ -482,6 +483,28 @@
                 const data = await res.json();
                 showAlert('alert', data.detail, 'error');
             }
+
+        function openBulkAttendance() {
+            const date = document.getElementById('att-date').value;
+            if (!date) {
+                showAlert('alert', 'Please select a date first.', 'error');
+                return;
+            }
+            if (!currentOfferingId) {
+                showAlert('alert', 'Please select an offering first.', 'error');
+                return;
+            }
+            let url = `/teacher/bulk-edit?entity=attendance&offering_id=${currentOfferingId}&date=${date}`;
+            if (currentSectionId) {
+                url += `&section_id=${currentSectionId}`;
+            }
+            window.open(url, '_blank');
+        }
+
+        function openBulkMarksFromButton(button) {
+            const assId = button.dataset.assessmentId;
+            const max = button.dataset.maxMarks;
+            window.open(`/teacher/bulk-edit?entity=marks&assessment_id=${assId}&max_marks=${max}`, '_blank');
         }
 
         document.getElementById('detail-section-filter').addEventListener('change', async (e) => {
