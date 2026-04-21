@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SMS - Admin Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites/dist/jsuites.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce/dist/jspreadsheet.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/jsuites/dist/jsuites.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce/dist/jspreadsheet.min.js"></script>
 </head>
 <body class="app-page admin-page">
     <nav class="nav-bar">
@@ -52,10 +48,7 @@
         <section id="tab-students" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Records</p><h1>Students</h1></div>
-                <div class="btn-group">
-                    <button class="btn btn-outline" onclick="BulkEditor.open('students')">📊 Bulk Edit</button>
-                    <button class="btn btn-primary" onclick="openModal('studentModal')">+ Add Student</button>
-                </div>
+                <button class="btn btn-primary" onclick="openModal('studentModal')">+ Add Student</button>
             </div>
             <div class="card table-wrapper">
                 <table>
@@ -68,10 +61,7 @@
         <section id="tab-teachers" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Faculty</p><h1>Teachers</h1></div>
-                <div class="btn-group">
-                    <button class="btn btn-outline" onclick="BulkEditor.open('teachers')">📊 Bulk Edit</button>
-                    <button class="btn btn-primary" onclick="openModal('teacherModal')">+ Add Teacher</button>
-                </div>
+                <button class="btn btn-primary" onclick="openModal('teacherModal')">+ Add Teacher</button>
             </div>
             <div class="card table-wrapper">
                 <table>
@@ -84,10 +74,7 @@
         <section id="tab-courses" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Catalog</p><h1>Courses</h1></div>
-                <div class="btn-group">
-                    <button class="btn btn-outline" onclick="BulkEditor.open('courses')">📊 Bulk Edit</button>
-                    <button class="btn btn-primary" onclick="openModal('courseModal')">+ Add Course</button>
-                </div>
+                <button class="btn btn-primary" onclick="openModal('courseModal')">+ Add Course</button>
             </div>
             <div class="card table-wrapper">
                 <table>
@@ -100,10 +87,7 @@
         <section id="tab-offerings" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Academic Delivery</p><h1>Course Offerings</h1></div>
-                <div class="btn-group">
-                    <button class="btn btn-outline" onclick="BulkEditor.open('offerings')">📊 Bulk Edit</button>
-                    <button class="btn btn-primary" onclick="openOfferingModal()">+ Add Offering</button>
-                </div>
+                <button class="btn btn-primary" onclick="openOfferingModal()">+ Add Offering</button>
             </div>
             <div class="card table-wrapper">
                 <table>
@@ -116,10 +100,7 @@
         <section id="tab-enrollments" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Mappings</p><h1>Enrollments</h1></div>
-                <div class="btn-group">
-                    <button class="btn btn-outline" onclick="BulkEditor.open('enrollments')">📊 Bulk Edit</button>
-                    <button class="btn btn-primary" onclick="openModal('enrollModal')">+ Enroll Student</button>
-                </div>
+                <button class="btn btn-primary" onclick="openModal('enrollModal')">+ Enroll Student</button>
             </div>
             <div class="card table-wrapper">
                 <table>
@@ -132,10 +113,7 @@
         <section id="tab-assignments" class="tab-content">
             <div class="page-header">
                 <div><p class="eyebrow">Assignments</p><h1>Teacher Assignments</h1></div>
-                <div class="btn-group">
-                    <button class="btn btn-outline" onclick="BulkEditor.open('assignments')">📊 Bulk Edit</button>
-                    <button class="btn btn-primary" onclick="openModal('assignModal')">+ Assign Teacher</button>
-                </div>
+                <button class="btn btn-primary" onclick="openModal('assignModal')">+ Assign Teacher</button>
             </div>
             <div class="card table-wrapper">
                 <table>
@@ -357,22 +335,7 @@
         </div>
     </div>
 
-    <div id="bulkEditModal" class="modal-overlay">
-        <div class="modal bulk-modal">
-            <div class="bulk-header">
-                <h2 id="bulk-title">Bulk Edit</h2>
-                <div id="bulk-status" class="bulk-status"></div>
-            </div>
-            <div id="spreadsheet" class="bulk-spreadsheet"></div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-outline" onclick="BulkEditor.close()">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="BulkEditor.save()">💾 Save All</button>
-            </div>
-        </div>
-    </div>
-
     <script src="/static/js/app.js"></script>
-    <script src="/static/js/bulk.js"></script>
     <script>
         requireAuth('ADMIN');
 

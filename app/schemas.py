@@ -357,24 +357,3 @@ class DashboardStats(BaseModel):
     total_courses: int
     total_sections: int = 0
     total_course_offerings: int = 0
-
-
-# ── Bulk Operations ────────────────────────────────────
-
-
-class BulkRowResult(BaseModel):
-    row: int
-    status: str  # "created", "updated", "error"
-    message: str
-
-
-class BulkSummary(BaseModel):
-    created: int = 0
-    updated: int = 0
-    deleted: int = 0
-    errors: int = 0
-
-
-class BulkResponse(BaseModel):
-    summary: BulkSummary
-    results: list[BulkRowResult]
