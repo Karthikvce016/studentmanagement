@@ -6,9 +6,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from app.database import engine, Base
 from app.routers import auth, admin, teacher, student
 
 logger = logging.getLogger(__name__)
+
+# Create all database tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Student Management System", version="1.0.0")
 
