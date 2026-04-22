@@ -13,7 +13,9 @@ const BulkEditor = {
             fetchUrl: '/admin/students',
             idField: 'roll_number',
             columns: [
-                { name: 'roll_number', title: 'Roll Number', width: 160, readOnly: true },
+                { name: 'roll_number', title: 'Roll Number', width: 160,
+                  readOnly: false  /* auto-generated for new rows; editable to allow lookup */
+                },
                 { name: 'first_name', title: 'First Name', width: 130 },
                 { name: 'last_name', title: 'Last Name', width: 130 },
                 { name: 'dob', title: 'DOB', width: 120, type: 'calendar', options: { format: 'YYYY-MM-DD' } },

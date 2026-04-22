@@ -162,8 +162,12 @@
             this._worksheet = this._spreadsheet[0];
             this._existingCount = existingData.length;
 
-            document.getElementById('bulk-status').textContent =
-                `${existingData.length} existing rows loaded. Scroll to bottom for new entries.`;
+            let hint = `${existingData.length} existing rows loaded. Scroll to bottom for new entries.`;
+            if (entity === 'students') {
+                hint += ' 💡 Leave Roll Number blank for new students — it auto-generates from Branch + Year.';
+            }
+            document.getElementById('bulk-status').textContent = hint;
+            document.getElementById('bulk-status').style.background = '#e8f5e9';
         };
 
         // Initialize on load

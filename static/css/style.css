@@ -1118,3 +1118,143 @@ select.attendance-select {
     border: 1px solid var(--primary) !important;
 }
 
+/* ── Assignment Chips ──────────────────────────────────── */
+
+.assign-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--primary-soft);
+    border: 1px solid #4b2635;
+    color: #f6c4d5;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: border-color 0.15s;
+}
+
+.assign-chip:hover {
+    border-color: var(--primary);
+}
+
+.chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 70, 87, 0.2);
+    color: #ff9aa5;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: background 0.15s;
+    line-height: 1;
+    padding: 0;
+}
+
+.chip-remove:hover {
+    background: rgba(255, 70, 87, 0.5);
+    color: #fff;
+}
+
+/* ── Attendance Grid ───────────────────────────────────── */
+
+.att-grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.att-grid th,
+.att-grid td {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.att-grid thead th {
+    background: #1c171b;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.att-period-col {
+    width: 56px;
+    min-width: 56px;
+    text-align: center;
+}
+
+.att-row-num {
+    width: 40px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.att-roll {
+    font-weight: 700;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.att-name {
+    white-space: nowrap;
+}
+
+.att-cell {
+    padding: 2px !important;
+    text-align: center;
+    transition: background 0.12s;
+}
+
+.att-cell.att-present {
+    background: rgba(34, 199, 122, 0.18) !important;
+}
+
+.att-cell.att-absent {
+    background: rgba(255, 70, 87, 0.18) !important;
+}
+
+.att-input {
+    width: 100%;
+    height: 34px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 900;
+    text-align: center;
+    text-transform: uppercase;
+    outline: none;
+    cursor: pointer;
+}
+
+.att-input:focus {
+    border-color: var(--primary);
+    background: rgba(240, 20, 93, 0.08);
+    box-shadow: 0 0 0 2px rgba(240, 20, 93, 0.2);
+}
+
+.att-present .att-input {
+    color: #80f0b4;
+}
+
+.att-absent .att-input {
+    color: #ff9aa5;
+}
+
+.att-grid tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+

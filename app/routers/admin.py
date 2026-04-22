@@ -642,6 +642,92 @@ def assign_teacher(teacher_id: int, offering_id: int, db: Session = Depends(get_
     return {"message": "Teacher assigned to offering"}
 
 
+@router.post("/assign-teacher-to-course")
+def assign_teacher_to_course(
+    teacher_id: int = Query(...),
+    course_id: int = Query(...),
+    section_id: int = Query(None),
+    academic_year: int = Query(None),
+    semester: int = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required),
+):
+    """Simplified assignment: pick a teacher + course (+ optional section/year/sem).
+    Auto-finds or creates the CourseOffering, then creates TeacherCourse link."""
+    teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if section_id:
+        section = db.query(Section).filter(Section.id == section_id).first()
+        if not section:
+            raise HTTPException(status_code=404, detail="Section not found")
+
+    # Default to current year and semester 1 if not provided
+    if not academic_year:
+        academic_year = date.today().year
+    if not semester:
+        semester = 1
+
+    # Find existing offering or create one
+    query = db.query(CourseOffering).filter(
+        CourseOffering.course_id == course_id,
+        CourseOffering.academic_year == academic_year,
+        CourseOffering.semester == semester,
+    )
+    if section_id:
+        query = query.filter(CourseOffering.section_id == section_id)
+    else:
+        query = query.filter(CourseOffering.section_id.is_(None))
+
+    offering = query.first()
+    if not offering:
+        offering = CourseOffering(
+            course_id=course_id,
+            academic_year=academic_year,
+            semester=semester,
+            section_id=section_id,
+            capacity=65,
+            is_active=True,
+        )
+        db.add(offering)
+        db.flush()
+
+    # Check if already assigned
+    if db.query(TeacherCourse).filter(
+        TeacherCourse.teacher_id == teacher_id,
+        TeacherCourse.offering_id == offering.id,
+    ).first():
+        raise HTTPException(status_code=400, detail="Teacher already assigned to this course/section")
+
+    db.add(TeacherCourse(teacher_id=teacher_id, offering_id=offering.id))
+
+    # ── Auto-enroll all students in the section ──
+    enrolled_count = 0
+    if section_id:
+        section_students = db.query(Student).filter(Student.section_id == section_id).all()
+        for student in section_students:
+            existing = db.query(Enrollment).filter(
+                Enrollment.student_id == student.id,
+                Enrollment.offering_id == offering.id,
+            ).first()
+            if not existing:
+                db.add(Enrollment(student_id=student.id, offering_id=offering.id, enrolled_date=date.today()))
+                enrolled_count += 1
+
+    db.commit()
+
+    section_label = ""
+    if section_id:
+        sec = db.query(Section).filter(Section.id == section_id).first()
+        if sec:
+            section_label = f" (Section {sec.name})"
+    enroll_msg = f" Auto-enrolled {enrolled_count} students." if enrolled_count else ""
+    return {"message": f"Teacher {teacher.first_name} {teacher.last_name} assigned to {course.code} — {course.name}{section_label}.{enroll_msg}"}
+
+
 @router.delete("/unassign-teacher")
 def unassign_teacher(teacher_id: int, offering_id: int, db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
     assignment = db.query(TeacherCourse).filter(TeacherCourse.teacher_id == teacher_id, TeacherCourse.offering_id == offering_id).first()
@@ -650,6 +736,86 @@ def unassign_teacher(teacher_id: int, offering_id: int, db: Session = Depends(ge
     db.delete(assignment)
     db.commit()
     return {"message": "Teacher unassigned from offering"}
+
+
+@router.post("/enroll-by-rolls")
+def enroll_by_roll_numbers(
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required),
+):
+    """Enroll students by roll numbers into an offering.
+    Accepts: { offering_id: int, roll_numbers: str }
+    roll_numbers can be:
+      - Comma-separated: "1602-24-733-001, 1602-24-733-002, 1602-24-733-003"
+      - Range shorthand: "1602-24-733-001 to 065" (expands prefix + serial range)
+      - Individual: "1602-24-733-042"
+    """
+    offering_id = data.get("offering_id")
+    roll_input = (data.get("roll_numbers") or "").strip()
+    if not offering_id or not roll_input:
+        raise HTTPException(status_code=400, detail="offering_id and roll_numbers required")
+
+    offering = db.query(CourseOffering).filter(CourseOffering.id == offering_id).first()
+    if not offering:
+        raise HTTPException(status_code=404, detail="Offering not found")
+
+    # Parse roll numbers
+    roll_list = []
+    # Check for range pattern: "PREFIX-001 to 065"
+    if " to " in roll_input.lower():
+        parts = roll_input.lower().split(" to ")
+        start_roll = parts[0].strip()
+        end_serial = parts[1].strip()
+        # Extract prefix and start serial from the full roll number
+        prefix = "-".join(start_roll.split("-")[:-1])  # e.g. "1602-24-733"
+        start_serial = int(start_roll.split("-")[-1])   # e.g. 1
+        end_serial_num = int(end_serial)                 # e.g. 65
+        for s in range(start_serial, end_serial_num + 1):
+            roll_list.append(f"{prefix}-{str(s).zfill(3)}")
+    else:
+        # Comma-separated
+        roll_list = [r.strip() for r in roll_input.split(",") if r.strip()]
+
+    enrolled = 0
+    skipped = 0
+    not_found = []
+    for roll in roll_list:
+        student = db.query(Student).filter(Student.roll_number == roll).first()
+        if not student:
+            not_found.append(roll)
+            continue
+        existing = db.query(Enrollment).filter(
+            Enrollment.student_id == student.id,
+            Enrollment.offering_id == offering_id,
+        ).first()
+        if existing:
+            skipped += 1
+            continue
+        db.add(Enrollment(student_id=student.id, offering_id=offering_id, enrolled_date=date.today()))
+        enrolled += 1
+
+    db.commit()
+    msg = f"Enrolled {enrolled} students."
+    if skipped:
+        msg += f" {skipped} already enrolled."
+    if not_found:
+        msg += f" Not found: {', '.join(not_found[:5])}" + (f" (+{len(not_found)-5} more)" if len(not_found) > 5 else "")
+    return {"message": msg}
+
+
+@router.get("/offerings-dropdown")
+def offerings_dropdown(db: Session = Depends(get_db), current_user: User = Depends(admin_required)):
+    """Simple list of offerings for dropdown selectors."""
+    offerings = db.query(CourseOffering).filter(CourseOffering.is_active == True).all()
+    return [
+        {
+            "id": o.id,
+            "label": f"{o.course.code} — {o.course.name} ({o.academic_year} S{o.semester})"
+                     + (f" [{o.section.branch_code}-{o.section.name}]" if o.section else ""),
+        }
+        for o in offerings
+    ]
 
 
 @router.post("/enroll")

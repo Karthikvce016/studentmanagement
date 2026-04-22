@@ -29,7 +29,7 @@ if not JWT_SECRET_KEY or JWT_SECRET_KEY.startswith("super-secret"):
     JWT_SECRET_KEY = JWT_SECRET_KEY or "dev-only-fallback-key-CHANGE-ME"
 
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
 # ── Logging ───────────────────────────────────────────
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

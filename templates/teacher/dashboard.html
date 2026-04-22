@@ -10,7 +10,7 @@
     <nav class="nav-bar">
         <span class="brand">Teacher Portal</span>
         <div class="nav-links">
-            <a href="#" class="active" onclick="showSection('offerings', event)">My Offerings</a>
+            <a href="#" class="active" onclick="showSection('offerings', event)">My Courses</a>
             <a href="#" onclick="logout()">Logout</a>
         </div>
     </nav>
@@ -22,23 +22,23 @@
             <div class="page-header">
                 <div>
                     <p class="eyebrow">Teacher Portal</p>
-                    <h1>My Offerings</h1>
+                    <h1>My Courses</h1>
                 </div>
             </div>
-            <p class="helper-text">Open an offering to manage students, attendance, assessments, and marks.</p>
+            <p class="helper-text">Open a course to manage students, attendance, assessments, and marks.</p>
             <div id="offerings-list" class="courses-grid"></div>
             <div id="no-offerings" class="panel" style="display:none;">
-                <p class="muted">No offerings assigned yet.</p>
+                <p class="muted">No courses assigned yet.</p>
             </div>
         </section>
 
         <section id="section-detail" style="display:none;">
             <div class="page-header">
                 <div>
-                    <p class="eyebrow">Offering Workspace</p>
-                    <h1 id="detail-title">Offering</h1>
+                    <p class="eyebrow">Course Workspace</p>
+                    <h1 id="detail-title">Course</h1>
                 </div>
-                <button class="btn btn-outline" onclick="showSection('offerings', event)">Back to Offerings</button>
+                <button class="btn btn-outline" onclick="showSection('offerings', event)">Back to Courses</button>
             </div>
 
             <div class="panel" style="margin-bottom:16px;">
@@ -71,31 +71,61 @@
                 <div class="panel" style="margin-bottom:16px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                         <h2 class="section-title" style="font-size:1.15rem; margin:0;">Mark Attendance</h2>
-                        <button class="btn btn-outline" style="padding: 4px 12px; font-size: 13px;" onclick="openBulkAttendance()">📊 Bulk Edit</button>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" id="att-save-btn" onclick="saveAttendanceGrid()">💾 Save All</button>
+                        </div>
                     </div>
-                    <div class="inline-form">
+                    <div class="inline-form" style="margin-bottom:12px;">
                         <div class="form-group">
                             <label>Date</label>
                             <input type="date" id="att-date">
                         </div>
                         <div class="form-group">
-                            <label>Period</label>
-                            <input type="number" id="att-period" min="1" max="7" value="1">
+                            <label>From Period</label>
+                            <select id="att-period-from">
+                                <option value="1">Period 1</option><option value="2">Period 2</option>
+                                <option value="3">Period 3</option><option value="4">Period 4</option>
+                                <option value="5">Period 5</option><option value="6">Period 6</option>
+                                <option value="7">Period 7</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label>Sub Period</label>
-                            <input type="number" id="att-sub-period" min="1" max="4" value="1">
+                            <label>To Period</label>
+                            <select id="att-period-to">
+                                <option value="1">Period 1</option><option value="2">Period 2</option>
+                                <option value="3">Period 3</option><option value="4">Period 4</option>
+                                <option value="5">Period 5</option><option value="6">Period 6</option>
+                                <option value="7">Period 7</option>
+                            </select>
                         </div>
                     </div>
-                    <p class="attendance-note">Checked means present. Changes save automatically for the selected slot.</p>
-                    <div id="att-form" style="margin-top:12px;"></div>
+                    <p class="attendance-note">Type <strong>P</strong> (Present) or <strong>A</strong> (Absent). Use <strong>Arrow Keys</strong> to move. Press <strong>Enter</strong> to move down.</p>
+                    <div id="att-grid-wrap" style="margin-top:12px; overflow-x:auto;">
+                        <table id="att-grid-table" class="att-grid">
+                            <thead id="att-grid-head"></thead>
+                            <tbody id="att-grid-body"></tbody>
+                        </table>
+                    </div>
+                    <div id="att-grid-status" class="bulk-status" style="margin-top:10px;"></div>
                 </div>
 
+                <!-- Period-wise Hourly Summary -->
+                <div class="card" style="margin-bottom:16px;">
+                    <h2 class="section-title" style="font-size:1.15rem;margin-bottom:14px;">📅 Period-wise Attendance (Today)</h2>
+                    <div class="table-wrapper">
+                        <table class="att-grid">
+                            <thead id="att-period-summary-head"></thead>
+                            <tbody id="att-period-summary-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Overall Summary -->
                 <div class="card">
-                    <h2 class="section-title" style="font-size:1.15rem;margin-bottom:14px;">Attendance Summary</h2>
+                    <h2 class="section-title" style="font-size:1.15rem;margin-bottom:14px;">📊 Overall Attendance Summary</h2>
                     <div class="table-wrapper">
                         <table>
-                            <thead><tr><th>Student</th><th>Total Periods</th><th>Present</th><th>Percentage</th></tr></thead>
+                            <thead><tr><th>Roll No</th><th>Student</th><th>Total</th><th>Present</th><th>Absent</th><th>%</th></tr></thead>
                             <tbody id="att-summary"></tbody>
                         </table>
                     </div>
@@ -242,90 +272,203 @@
 
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('att-date').value = document.getElementById('att-date').value || today;
-            renderAttendanceForm();
             if (document.getElementById('sub-attendance').classList.contains('active')) {
-                loadAttendanceSlot();
+                loadAttendanceTab();
             }
         }
 
-        function getAttendanceSlot() {
-            return {
-                date: document.getElementById('att-date').value,
-                period: parseInt(document.getElementById('att-period').value, 10) || 1,
-                sub_period: parseInt(document.getElementById('att-sub-period').value, 10) || 1
-            };
+        /* ── Attendance Grid System ─────────────────────────── */
+
+        function getAttPeriodRange() {
+            const from = parseInt(document.getElementById('att-period-from').value, 10) || 1;
+            const to = parseInt(document.getElementById('att-period-to').value, 10) || from;
+            return { from: Math.min(from, to), to: Math.max(from, to) };
         }
 
-        function renderAttendanceForm(rows = []) {
-            const rowMap = new Map(rows.map(row => [row.student_id, row.status]));
-            const form = document.getElementById('att-form');
-            if (!currentAttendanceStudents.length) {
-                form.innerHTML = '<p class="muted">No students enrolled.</p>';
-                return;
-            }
+        // Sync "To" when "From" changes
+        document.getElementById('att-period-from').addEventListener('change', () => {
+            const from = parseInt(document.getElementById('att-period-from').value, 10);
+            const toEl = document.getElementById('att-period-to');
+            if (parseInt(toEl.value, 10) < from) toEl.value = from;
+            loadAttendanceGrid();
+        });
+        document.getElementById('att-period-to').addEventListener('change', () => loadAttendanceGrid());
+        document.getElementById('att-date').addEventListener('change', () => loadAttendanceGrid());
 
-            form.innerHTML = currentAttendanceStudents.map(student => {
-                const status = rowMap.get(student.student_id) || 'PRESENT';
-                const checked = status !== 'ABSENT';
-                const meta = [
-                    student.section ? `Section ${esc(student.section)}` : null,
-                    student.email ? esc(student.email) : null
-                ].filter(Boolean).join(' · ');
+        async function loadAttendanceGrid() {
+            if (!currentOfferingId || !currentAttendanceStudents.length) return;
+            const dateVal = document.getElementById('att-date').value;
+            if (!dateVal) return;
 
-                return `
-                    <div class="entry-row attendance-entry">
-                        <div class="attendance-student">
-                            <span><strong>${esc(student.roll_number || student.student_id)}</strong> ${esc(student.first_name)} ${esc(student.last_name)}</span>
-                            <div class="attendance-meta">${meta || 'Ready to mark'}</div>
-                        </div>
-                        <div class="attendance-actions">
-                            <label class="attendance-toggle ${checked ? '' : 'is-absent'}">
-                                <input type="checkbox" class="attendance-checkbox" data-student="${esc(student.student_id)}" ${checked ? 'checked' : ''} onchange="toggleAttendance(this)">
-                                <span class="attendance-toggle-text">${checked ? 'Present' : 'Absent'}</span>
-                            </label>
-                            <span class="attendance-save-status" data-attendance-status="${esc(student.student_id)}"></span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+            const range = getAttPeriodRange();
+            const periods = [];
+            for (let p = range.from; p <= range.to; p++) periods.push(p);
 
-        function setAttendanceRowStatus(studentId, message = '', state = '') {
-            const el = document.querySelector(`[data-attendance-status="${studentId}"]`);
-            if (!el) return;
-            el.textContent = message;
-            el.className = 'attendance-save-status' + (state ? ` ${state}` : '');
-        }
+            // Build header
+            const headEl = document.getElementById('att-grid-head');
+            headEl.innerHTML = `<tr>
+                <th style="min-width:60px">#</th>
+                <th style="min-width:100px">Roll No</th>
+                <th style="min-width:140px">Name</th>
+                ${periods.map(p => `<th class="att-period-col">P${p}</th>`).join('')}
+            </tr>`;
 
-        function updateAttendanceToggle(checkbox) {
-            const toggle = checkbox.closest('.attendance-toggle');
-            if (!toggle) return;
-            toggle.classList.toggle('is-absent', !checkbox.checked);
-            const text = toggle.querySelector('.attendance-toggle-text');
-            if (text) text.textContent = checkbox.checked ? 'Present' : 'Absent';
-        }
-
-        async function loadAttendanceSlot() {
-            if (!currentOfferingId) return;
-            const slot = getAttendanceSlot();
-            if (!slot.date) {
-                renderAttendanceForm();
-                return;
-            }
-
-            const requestId = ++attendanceHydrationRequest;
-            renderAttendanceForm();
-            const params = new URLSearchParams({
-                att_date: slot.date,
-                period: String(slot.period),
-                sub_period: String(slot.sub_period)
+            // Fetch existing data for all periods in parallel
+            const fetches = periods.map(p => {
+                const params = new URLSearchParams({ att_date: dateVal, period: String(p), sub_period: '1' });
+                if (currentSectionId) params.set('section_id', currentSectionId);
+                return api(`/teacher/attendance/${currentOfferingId}/grid?${params.toString()}`);
             });
-            if (currentSectionId) params.set('section_id', currentSectionId);
-            const res = await api(`/teacher/attendance/${currentOfferingId}/grid?${params.toString()}`);
-            if (!res || requestId !== attendanceHydrationRequest) return;
-            const rows = await res.json();
-            if (requestId !== attendanceHydrationRequest) return;
-            renderAttendanceForm(rows);
+            const responses = await Promise.all(fetches);
+            // Map: student_id -> { period -> status }
+            const statusMap = {};
+            for (let i = 0; i < responses.length; i++) {
+                if (!responses[i]) continue;
+                const rows = await responses[i].json();
+                const p = periods[i];
+                rows.forEach(r => {
+                    if (!statusMap[r.student_id]) statusMap[r.student_id] = {};
+                    statusMap[r.student_id][p] = r.status; // "PRESENT" or "ABSENT" or null
+                });
+            }
+
+            // Build body
+            const bodyEl = document.getElementById('att-grid-body');
+            bodyEl.innerHTML = currentAttendanceStudents.map((student, idx) => {
+                const sm = statusMap[student.student_id] || {};
+                return `<tr>
+                    <td class="att-row-num">${idx + 1}</td>
+                    <td class="att-roll">${esc(student.roll_number || student.student_id)}</td>
+                    <td class="att-name">${esc(student.first_name)} ${esc(student.last_name)}</td>
+                    ${periods.map(p => {
+                        const st = sm[p];
+                        const val = st === 'PRESENT' ? 'P' : st === 'ABSENT' ? 'A' : '';
+                        const cls = val === 'P' ? 'att-present' : val === 'A' ? 'att-absent' : '';
+                        return `<td class="att-cell ${cls}">
+                            <input class="att-input" maxlength="1"
+                                data-student="${esc(student.student_id)}" data-period="${p}"
+                                data-row="${idx}" data-col="${p - range.from}"
+                                value="${val}"
+                                autocomplete="off">
+                        </td>`;
+                    }).join('')}
+                </tr>`;
+            }).join('');
+
+            // Attach keyboard handlers
+            bodyEl.querySelectorAll('.att-input').forEach(input => {
+                input.addEventListener('keydown', handleAttGridKey);
+                input.addEventListener('input', handleAttGridInput);
+                input.addEventListener('focus', function() { this.select(); });
+            });
+
+            document.getElementById('att-grid-status').textContent =
+                `${currentAttendanceStudents.length} students × ${periods.length} period${periods.length > 1 ? 's' : ''}`;
+        }
+
+        function handleAttGridInput(e) {
+            const input = e.target;
+            let val = input.value.toUpperCase().trim();
+            // Only allow P or A
+            if (val && val !== 'P' && val !== 'A') {
+                val = '';
+            }
+            input.value = val;
+
+            // Color the cell
+            const cell = input.closest('td');
+            cell.className = 'att-cell' + (val === 'P' ? ' att-present' : val === 'A' ? ' att-absent' : '');
+
+            // Auto-move down after typing
+            if (val) {
+                const row = parseInt(input.dataset.row, 10);
+                const col = parseInt(input.dataset.col, 10);
+                moveToAttCell(row + 1, col);
+            }
+        }
+
+        function handleAttGridKey(e) {
+            const row = parseInt(e.target.dataset.row, 10);
+            const col = parseInt(e.target.dataset.col, 10);
+
+            switch (e.key) {
+                case 'ArrowDown':
+                case 'Enter':
+                    e.preventDefault();
+                    moveToAttCell(row + 1, col);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    moveToAttCell(row - 1, col);
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    moveToAttCell(row, col + 1);
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    moveToAttCell(row, col - 1);
+                    break;
+                case 'Tab':
+                    e.preventDefault();
+                    if (e.shiftKey) moveToAttCell(row, col - 1);
+                    else moveToAttCell(row, col + 1);
+                    break;
+            }
+        }
+
+        function moveToAttCell(row, col) {
+            const next = document.querySelector(`.att-input[data-row="${row}"][data-col="${col}"]`);
+            if (next) { next.focus(); next.select(); }
+        }
+
+        async function saveAttendanceGrid() {
+            const dateVal = document.getElementById('att-date').value;
+            if (!dateVal) {
+                showAlert('alert', 'Select a date first', 'error');
+                return;
+            }
+
+            const inputs = document.querySelectorAll('#att-grid-body .att-input');
+            const records = [];
+            inputs.forEach(input => {
+                const val = input.value.toUpperCase().trim();
+                if (val === 'P' || val === 'A') {
+                    records.push({
+                        student_id: parseInt(input.dataset.student, 10),
+                        period: parseInt(input.dataset.period, 10),
+                        status: val === 'P' ? 'PRESENT' : 'ABSENT'
+                    });
+                }
+            });
+
+            if (records.length === 0) {
+                showAlert('alert', 'No attendance to save — type P or A in cells first', 'error');
+                return;
+            }
+
+            const statusEl = document.getElementById('att-grid-status');
+            statusEl.textContent = 'Saving...';
+            statusEl.className = 'bulk-status bulk-status-warn';
+
+            const res = await api('/teacher/attendance/bulk', {
+                method: 'POST',
+                body: JSON.stringify({
+                    offering_id: currentOfferingId,
+                    date: dateVal,
+                    records
+                })
+            });
+
+            if (res && res.ok) {
+                statusEl.textContent = `✓ Saved ${records.length} records`;
+                statusEl.className = 'bulk-status bulk-status-success';
+                loadAttendanceSummary();
+                loadPeriodSummary();
+            } else {
+                statusEl.textContent = '✗ Save failed';
+                statusEl.className = 'bulk-status bulk-status-error';
+            }
         }
 
         async function loadAttendanceSummary() {
@@ -333,66 +476,72 @@
             const res = await api(`/teacher/attendance/${currentOfferingId}${selectedSectionQuery()}`);
             if (!res) return;
             const data = await res.json();
-            document.getElementById('att-summary').innerHTML = data.map(student => `
+            document.getElementById('att-summary').innerHTML = data.map(student => {
+                const absent = student.total_periods - student.present;
+                return `
                 <tr>
+                    <td>${esc(student.roll_number || student.student_id)}</td>
                     <td>${esc(student.student_name)}</td>
                     <td>${esc(student.total_periods)}</td>
-                    <td>${esc(student.present)}</td>
+                    <td><span class="badge badge-success">${esc(student.present)}</span></td>
+                    <td><span class="badge badge-danger">${absent}</span></td>
                     <td><span class="badge ${student.percentage >= 75 ? 'badge-success' : 'badge-danger'}">${esc(student.percentage)}%</span></td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="6">No attendance records.</td></tr>';
+        }
+
+        async function loadPeriodSummary() {
+            if (!currentOfferingId) return;
+            const dateVal = document.getElementById('att-date').value;
+            if (!dateVal) return;
+
+            // Fetch all 7 periods for the day
+            const fetches = [];
+            for (let p = 1; p <= 7; p++) {
+                const params = new URLSearchParams({ att_date: dateVal, period: String(p), sub_period: '1' });
+                if (currentSectionId) params.set('section_id', currentSectionId);
+                fetches.push(api(`/teacher/attendance/${currentOfferingId}/grid?${params.toString()}`));
+            }
+            const responses = await Promise.all(fetches);
+
+            // Build student -> period -> status map
+            const studentMap = {};
+            for (let i = 0; i < responses.length; i++) {
+                if (!responses[i]) continue;
+                const rows = await responses[i].json();
+                rows.forEach(r => {
+                    if (!studentMap[r.student_id]) {
+                        studentMap[r.student_id] = { name: r.student_name, roll: r.roll_number, periods: {} };
+                    }
+                    studentMap[r.student_id].periods[i + 1] = r.status;
+                });
+            }
+
+            // Header
+            document.getElementById('att-period-summary-head').innerHTML = `<tr>
+                <th>#</th><th>Roll No</th><th>Name</th>
+                ${[1,2,3,4,5,6,7].map(p => `<th class="att-period-col">P${p}</th>`).join('')}
+            </tr>`;
+
+            // Body
+            const students = Object.values(studentMap);
+            document.getElementById('att-period-summary-body').innerHTML = students.map((s, idx) => `
+                <tr>
+                    <td class="att-row-num">${idx + 1}</td>
+                    <td class="att-roll">${esc(s.roll)}</td>
+                    <td class="att-name">${esc(s.name)}</td>
+                    ${[1,2,3,4,5,6,7].map(p => {
+                        const st = s.periods[p];
+                        const label = st === 'PRESENT' ? 'P' : st === 'ABSENT' ? 'A' : '-';
+                        const cls = st === 'PRESENT' ? 'att-present' : st === 'ABSENT' ? 'att-absent' : '';
+                        return `<td class="att-cell ${cls}" style="text-align:center;font-weight:800;font-size:0.9rem;">${label}</td>`;
+                    }).join('')}
                 </tr>
-            `).join('') || '<tr><td colspan="4">No attendance records.</td></tr>';
+            `).join('') || '<tr><td colspan="10">No records for this date.</td></tr>';
         }
 
         async function loadAttendanceTab() {
-            await Promise.all([loadAttendanceSummary(), loadAttendanceSlot()]);
-        }
-
-        async function toggleAttendance(checkbox) {
-            const slot = getAttendanceSlot();
-            const studentId = parseInt(checkbox.dataset.student, 10);
-            const previousChecked = !checkbox.checked;
-            updateAttendanceToggle(checkbox);
-
-            if (!slot.date) {
-                checkbox.checked = previousChecked;
-                updateAttendanceToggle(checkbox);
-                showAlert('alert', 'Select a date before marking attendance', 'error');
-                return;
-            }
-
-            checkbox.disabled = true;
-            setAttendanceRowStatus(studentId, 'Saving...', 'is-saving');
-
-            const res = await api('/teacher/attendance', {
-                method: 'POST',
-                body: JSON.stringify({
-                    offering_id: currentOfferingId,
-                    date: slot.date,
-                    period: slot.period,
-                    sub_period: slot.sub_period,
-                    records: [{
-                        student_id: studentId,
-                        status: checkbox.checked ? 'PRESENT' : 'ABSENT'
-                    }]
-                })
-            });
-
-            if (!res || !res.ok) {
-                checkbox.checked = previousChecked;
-                updateAttendanceToggle(checkbox);
-                checkbox.disabled = false;
-                setAttendanceRowStatus(studentId, 'Save failed', 'is-error');
-                if (res && !res.ok) {
-                    const data = await res.json();
-                    showAlert('alert', data.detail || 'Failed to save attendance', 'error');
-                }
-                return;
-            }
-
-            checkbox.disabled = false;
-            setAttendanceRowStatus(studentId, 'Saved', 'is-saved');
-            loadAttendanceSummary();
-            setTimeout(() => setAttendanceRowStatus(studentId, ''), 1200);
+            await Promise.all([loadAttendanceGrid(), loadAttendanceSummary(), loadPeriodSummary()]);
         }
 
         async function loadAssessments() {
@@ -483,6 +632,7 @@
                 const data = await res.json();
                 showAlert('alert', data.detail, 'error');
             }
+        }
 
         function openBulkAttendance() {
             const date = document.getElementById('att-date').value;
@@ -491,7 +641,7 @@
                 return;
             }
             if (!currentOfferingId) {
-                showAlert('alert', 'Please select an offering first.', 'error');
+                showAlert('alert', 'Please select a course first.', 'error');
                 return;
             }
             let url = `/teacher/bulk-edit?entity=attendance&offering_id=${currentOfferingId}&date=${date}`;

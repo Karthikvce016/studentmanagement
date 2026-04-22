@@ -18,9 +18,8 @@
             <a href="#" onclick="showTab('students', event)">Students</a>
             <a href="#" onclick="showTab('teachers', event)">Teachers</a>
             <a href="#" onclick="showTab('courses', event)">Courses</a>
-            <a href="#" onclick="showTab('offerings', event)">Offerings</a>
+            <a href="#" onclick="showTab('assignments', event)">Teacher ↔ Course</a>
             <a href="#" onclick="showTab('enrollments', event)">Enrollments</a>
-            <a href="#" onclick="showTab('assignments', event)">Assignments</a>
             <a href="#" onclick="showTab('reports', event)">Reports</a>
             <a href="#" onclick="logout()">Logout</a>
         </div>
@@ -118,12 +117,15 @@
                 <div><p class="eyebrow">Mappings</p><h1>Enrollments</h1></div>
                 <div class="btn-group">
                     <button class="btn btn-outline" onclick="window.open('/admin/bulk-edit?entity=enrollments', '_blank')">📊 Bulk Edit</button>
-                    <button class="btn btn-primary" onclick="openModal('enrollModal')">+ Enroll Student</button>
+                    <button class="btn btn-primary" onclick="openRollEnrollModal()">+ Enroll by Roll No</button>
                 </div>
+            </div>
+            <div class="card" style="padding:14px;margin-bottom:16px;">
+                <p class="attendance-note" style="margin:0;">💡 <strong>Tip:</strong> When you assign a Teacher → Course → Section, all students in that section are auto-enrolled. Use this tab only for manual enrollment by roll numbers.</p>
             </div>
             <div class="card table-wrapper">
                 <table>
-                    <thead><tr><th>Student</th><th>Offering</th><th>Enrolled Date</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Roll No</th><th>Student</th><th>Course</th><th>Section</th><th>Enrolled</th><th>Actions</th></tr></thead>
                     <tbody id="enrollments-table"></tbody>
                 </table>
             </div>
@@ -131,18 +133,13 @@
 
         <section id="tab-assignments" class="tab-content">
             <div class="page-header">
-                <div><p class="eyebrow">Assignments</p><h1>Teacher Assignments</h1></div>
+                <div><p class="eyebrow">Mappings</p><h1>Teacher ↔ Course Assignments</h1></div>
                 <div class="btn-group">
                     <button class="btn btn-outline" onclick="window.open('/admin/bulk-edit?entity=assignments', '_blank')">📊 Bulk Edit</button>
-                    <button class="btn btn-primary" onclick="openModal('assignModal')">+ Assign Teacher</button>
+                    <button class="btn btn-primary" onclick="openAssignCourseModal()">+ Assign Teacher to Course</button>
                 </div>
             </div>
-            <div class="card table-wrapper">
-                <table>
-                    <thead><tr><th>Teacher</th><th>Offering</th><th>Actions</th></tr></thead>
-                    <tbody id="assignments-table"></tbody>
-                </table>
-            </div>
+            <div id="assignments-grouped" style="display:flex;flex-direction:column;gap:12px;"></div>
         </section>
 
         <section id="tab-reports" class="tab-content">
@@ -329,14 +326,18 @@
         </div>
     </div>
 
-    <div id="enrollModal" class="modal-overlay">
+    <div id="rollEnrollModal" class="modal-overlay">
         <div class="modal">
-            <h2>Enroll Student in Offering</h2>
-            <form id="enrollForm">
-                <div class="form-group"><label>Student</label><select id="e_student"></select></div>
-                <div class="form-group"><label>Offering</label><select id="e_offering"></select></div>
+            <h2>Enroll Students by Roll Number</h2>
+            <form id="rollEnrollForm">
+                <div class="form-group"><label>Course Offering</label><select id="re_offering"></select></div>
+                <div class="form-group">
+                    <label>Roll Numbers</label>
+                    <textarea id="re_rolls" rows="3" placeholder="1602-24-733-001 to 065&#10;or comma-separated:&#10;1602-24-733-001, 1602-24-733-002" style="width:100%;font-family:monospace;"></textarea>
+                </div>
+                <p class="attendance-note" style="margin:0 0 12px;">💡 Range: <code>1602-24-733-001 to 065</code> enrolls 001 through 065. Or list: <code>roll1, roll2, roll3</code></p>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-outline" onclick="closeModal('enrollModal')">Cancel</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('rollEnrollModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Enroll</button>
                 </div>
             </form>
@@ -357,6 +358,21 @@
         </div>
     </div>
 
+    <div id="assignCourseModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Assign Teacher to Course</h2>
+            <form id="assignCourseForm">
+                <div class="form-group"><label>Teacher</label><select id="ac_teacher"></select></div>
+                <div class="form-group"><label>Course</label><select id="ac_course"></select></div>
+                <div class="form-group"><label>Section (optional)</label><select id="ac_section"><option value="">All Sections</option></select></div>
+                <div class="form-group"><label>Academic Year</label><input type="number" id="ac_year" min="2000" max="2100" required></div>
+                <div class="form-group"><label>Semester</label><input type="number" id="ac_semester" min="1" max="8" value="3" required></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('assignCourseModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script src="/static/js/app.js"></script>
@@ -527,7 +543,7 @@
                     <td>${esc(teacher.email) || '—'}</td>
                     <td>${esc(teacher.department) || '—'}</td>
                     <td class="btn-group">
-                        <button class="btn btn-primary btn-sm" data-teacher-id="${esc(teacher.id)}" data-teacher-name="${esc(teacher.first_name)} ${esc(teacher.last_name)}" onclick="assignOfferingFromButton(this)">+ Assign Offering</button>
+                        <button class="btn btn-primary btn-sm" data-teacher-id="${esc(teacher.id)}" data-teacher-name="${esc(teacher.first_name + ' ' + teacher.last_name)}" onclick="openAssignCourseModal({preTeacherId: this.dataset.teacherId, teacherName: this.dataset.teacherName})">+ Assign Course</button>
                         <button class="btn btn-outline btn-sm" onclick='editTeacher(${JSON.stringify(teacher).replace(/'/g, "&#39;")})'>Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteTeacher(${esc(teacher.id)})">Delete</button>
                     </td>
@@ -547,6 +563,7 @@
                     <td>${esc(course.credits)}</td>
                     <td>${esc(course.department) || '—'}</td>
                     <td class="btn-group">
+                        <button class="btn btn-primary btn-sm" data-course-id="${esc(course.id)}" data-course-name="${esc(course.code + ' — ' + course.name)}" onclick="openAssignCourseModal({preCourseId: this.dataset.courseId, courseName: this.dataset.courseName})">+ Assign Teacher</button>
                         <button class="btn btn-outline btn-sm" onclick='editCourse(${JSON.stringify(course).replace(/'/g, "&#39;")})'>Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteCourse(${esc(course.id)})">Delete</button>
                     </td>
@@ -583,24 +600,52 @@
             const data = await res.json();
             document.getElementById('enrollments-table').innerHTML = data.map(enrollment => `
                 <tr>
-                    <td>${esc(enrollment.student_name)} (${esc(enrollment.roll_number)})</td>
+                    <td><strong>${esc(enrollment.roll_number)}</strong></td>
+                    <td>${esc(enrollment.student_name)}</td>
                     <td>${esc(enrollment.offering_label)}</td>
+                    <td>${esc(enrollment.section || '—')}</td>
                     <td>${esc(enrollment.enrolled_date) || '—'}</td>
                     <td><button class="btn btn-danger btn-sm" onclick="unenroll(${esc(enrollment.student_id)}, ${esc(enrollment.offering_id)})">Remove</button></td>
                 </tr>
-            `).join('');
+            `).join('') || '<tr><td colspan="6">No enrollments yet.</td></tr>';
         }
 
         async function loadAssignments() {
             const res = await api('/admin/teacher-assignments');
             if (!res) return;
             const data = await res.json();
-            document.getElementById('assignments-table').innerHTML = data.map(assignment => `
-                <tr>
-                    <td>${esc(assignment.teacher_name)} (ID: ${esc(assignment.teacher_id)})</td>
-                    <td>${esc(assignment.offering_label)}</td>
-                    <td><button class="btn btn-danger btn-sm" onclick="unassign(${esc(assignment.teacher_id)}, ${esc(assignment.offering_id)})">Remove</button></td>
-                </tr>
+
+            // Group by teacher
+            const grouped = {};
+            data.forEach(a => {
+                const key = a.teacher_id;
+                if (!grouped[key]) grouped[key] = { name: a.teacher_name, id: a.teacher_id, courses: [] };
+                grouped[key].courses.push({ label: a.offering_label, offering_id: a.offering_id });
+            });
+
+            const container = document.getElementById('assignments-grouped');
+            if (Object.keys(grouped).length === 0) {
+                container.innerHTML = '<div class="card" style="padding:24px;text-align:center;"><p class="muted">No assignments yet.</p></div>';
+                return;
+            }
+            container.innerHTML = Object.values(grouped).map(t => `
+                <div class="card" style="padding:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <div>
+                            <strong style="font-size:1.05rem;">${esc(t.name)}</strong>
+                            <span class="muted" style="margin-left:8px;">ID: ${esc(t.id)}</span>
+                        </div>
+                        <span class="badge badge-info" style="font-size:12px;">${t.courses.length} course${t.courses.length > 1 ? 's' : ''}</span>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        ${t.courses.map(c => `
+                            <div class="assign-chip">
+                                <span>${esc(c.label)}</span>
+                                <button class="chip-remove" title="Remove" onclick="unassign(${esc(t.id)}, ${esc(c.offering_id)})">&times;</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
             `).join('');
         }
 
@@ -887,20 +932,34 @@
             }
         });
 
-        document.getElementById('enrollForm').addEventListener('submit', async (e) => {
+        // ── Roll Number Enrollment ──
+        async function openRollEnrollModal() {
+            const res = await api('/admin/offerings-dropdown');
+            if (!res) return;
+            const offerings = await res.json();
+            document.getElementById('re_offering').innerHTML = offerings.map(o =>
+                `<option value="${esc(o.id)}">${esc(o.label)}</option>`
+            ).join('');
+            openModal('rollEnrollModal');
+        }
+
+        document.getElementById('rollEnrollForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const studentId = document.getElementById('e_student').value;
-            const offeringId = document.getElementById('e_offering').value;
-            if (!studentId || !offeringId) {
-                showAlert('alert', 'Please select both a student and an offering.', 'error');
+            const offeringId = parseInt(document.getElementById('re_offering').value, 10);
+            const rolls = document.getElementById('re_rolls').value.trim();
+            if (!offeringId || !rolls) {
+                showAlert('alert', 'Select an offering and enter roll numbers.', 'error');
                 return;
             }
-            const res = await api(`/admin/enroll?student_id=${studentId}&offering_id=${offeringId}`, { method: 'POST' });
+            const res = await api('/admin/enroll-by-rolls', {
+                method: 'POST',
+                body: JSON.stringify({ offering_id: offeringId, roll_numbers: rolls })
+            });
             if (!res) return;
             const data = await res.json();
             if (res.ok) {
                 showAlert('alert', data.message);
-                closeModal('enrollModal');
+                closeModal('rollEnrollModal');
                 loadEnrollments();
                 e.target.reset();
             } else {
@@ -995,6 +1054,77 @@
                 loadAssignments();
             }
         }
+
+        async function openAssignCourseModal(opts = {}) {
+            const [tRes, cRes, sRes] = await Promise.all([
+                api('/admin/teachers'),
+                api('/admin/courses'),
+                api('/admin/sections')
+            ]);
+            if (!tRes || !cRes || !sRes) return;
+            const teachers = await tRes.json();
+            const courses = await cRes.json();
+            const sections = await sRes.json();
+
+            SearchSelect.populate('ac_teacher', teachers.map(t => ({
+                value: t.id,
+                label: `${t.first_name} ${t.last_name}`,
+                sub: t.department || 'No Dept'
+            })));
+            SearchSelect.populate('ac_course', courses.map(c => ({
+                value: c.id,
+                label: `${c.code} — ${c.name}`,
+                sub: `${c.credits} credits`
+            })));
+
+            const sectionSelect = document.getElementById('ac_section');
+            sectionSelect.innerHTML = '<option value="">All Sections</option>' +
+                sections.map(s => `<option value="${esc(s.id)}">${esc(s.branch_code)}-${esc(s.name)} (${esc(s.year)})</option>`).join('');
+
+            document.getElementById('ac_year').value = new Date().getFullYear();
+            document.getElementById('ac_semester').value = 3;
+
+            SearchSelect.unlock('ac_teacher');
+            SearchSelect.unlock('ac_course');
+
+            if (opts.preTeacherId) {
+                SearchSelect.lock('ac_teacher', opts.preTeacherId, opts.teacherName);
+            }
+            if (opts.preCourseId) {
+                SearchSelect.lock('ac_course', opts.preCourseId, opts.courseName);
+            }
+
+            document.getElementById('assignCourseModal').classList.add('active');
+        }
+
+        document.getElementById('assignCourseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const teacherId = document.getElementById('ac_teacher').value;
+            const courseId = document.getElementById('ac_course').value;
+            const sectionId = document.getElementById('ac_section').value;
+            const year = document.getElementById('ac_year').value;
+            const semester = document.getElementById('ac_semester').value;
+
+            if (!teacherId || !courseId) {
+                showAlert('alert', 'Please select both a teacher and a course.', 'error');
+                return;
+            }
+
+            let url = `/admin/assign-teacher-to-course?teacher_id=${teacherId}&course_id=${courseId}&academic_year=${year}&semester=${semester}`;
+            if (sectionId) url += `&section_id=${sectionId}`;
+
+            const res = await api(url, { method: 'POST' });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) {
+                showAlert('alert', data.message);
+                closeModal('assignCourseModal');
+                loadAssignments();
+                e.target.reset();
+            } else {
+                showAlert('alert', data.detail, 'error');
+            }
+        });
 
         loadStats();
     </script>

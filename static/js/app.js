@@ -29,7 +29,11 @@ async function api(url, options = {}) {
     options.headers = { ...authHeaders(), ...options.headers };
     try {
         const res = await fetch(API + url, options);
-        if (res.status === 401) { logout(); return null; }
+        if (res.status === 401) {
+            alert('Session expired — please log in again.');
+            logout();
+            return null;
+        }
         if (res.status >= 500) {
             console.error(`Server error ${res.status} on ${url}`);
             showAlert('alert', 'Server error — please try again later.', 'error');
