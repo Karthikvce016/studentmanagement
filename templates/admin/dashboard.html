@@ -375,6 +375,20 @@
         </div>
     </div>
 
+    <div id="enrollModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Enroll Student in Offering</h2>
+            <form id="enrollForm">
+                <div class="form-group"><label>Student</label><select id="e_student"></select></div>
+                <div class="form-group"><label>Offering</label><select id="e_offering"></select></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('enrollModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Enroll</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="/static/js/app.js"></script>
     <script src="/static/js/bulk.js"></script>
     <script>
@@ -603,7 +617,7 @@
                     <td><strong>${esc(enrollment.roll_number)}</strong></td>
                     <td>${esc(enrollment.student_name)}</td>
                     <td>${esc(enrollment.offering_label)}</td>
-                    <td>${esc(enrollment.section || '—')}</td>
+                    <td>${esc(enrollment.section_name || '—')}</td>
                     <td>${esc(enrollment.enrolled_date) || '—'}</td>
                     <td><button class="btn btn-danger btn-sm" onclick="unenroll(${esc(enrollment.student_id)}, ${esc(enrollment.offering_id)})">Remove</button></td>
                 </tr>
@@ -935,7 +949,10 @@
         // ── Roll Number Enrollment ──
         async function openRollEnrollModal() {
             const res = await api('/admin/offerings-dropdown');
-            if (!res) return;
+            if (!res) {
+                showAlert('alert', 'Failed to load offerings — your session may have expired.', 'error');
+                return;
+            }
             const offerings = await res.json();
             document.getElementById('re_offering').innerHTML = offerings.map(o =>
                 `<option value="${esc(o.id)}">${esc(o.label)}</option>`
@@ -982,6 +999,27 @@
                 showAlert('alert', data.message);
                 closeModal('assignModal');
                 loadAssignments();
+                e.target.reset();
+            } else {
+                showAlert('alert', data.detail, 'error');
+            }
+        });
+
+        document.getElementById('enrollForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const studentId = document.getElementById('e_student').value;
+            const offeringId = document.getElementById('e_offering').value;
+            if (!studentId || !offeringId) {
+                showAlert('alert', 'Please select both a student and an offering.', 'error');
+                return;
+            }
+            const res = await api(`/admin/enroll?student_id=${studentId}&offering_id=${offeringId}`, { method: 'POST' });
+            if (!res) return;
+            const data = await res.json();
+            if (res.ok) {
+                showAlert('alert', data.message);
+                closeModal('enrollModal');
+                loadEnrollments();
                 e.target.reset();
             } else {
                 showAlert('alert', data.detail, 'error');
@@ -1056,45 +1094,53 @@
         }
 
         async function openAssignCourseModal(opts = {}) {
-            const [tRes, cRes, sRes] = await Promise.all([
-                api('/admin/teachers'),
-                api('/admin/courses'),
-                api('/admin/sections')
-            ]);
-            if (!tRes || !cRes || !sRes) return;
-            const teachers = await tRes.json();
-            const courses = await cRes.json();
-            const sections = await sRes.json();
+            try {
+                const [tRes, cRes, sRes] = await Promise.all([
+                    api('/admin/teachers'),
+                    api('/admin/courses'),
+                    api('/admin/sections')
+                ]);
+                if (!tRes || !cRes || !sRes) {
+                    showAlert('alert', 'Failed to load data for assignment — your session may have expired. Please log in again.', 'error');
+                    return;
+                }
+                const teachers = await tRes.json();
+                const courses = await cRes.json();
+                const sections = await sRes.json();
 
-            SearchSelect.populate('ac_teacher', teachers.map(t => ({
-                value: t.id,
-                label: `${t.first_name} ${t.last_name}`,
-                sub: t.department || 'No Dept'
-            })));
-            SearchSelect.populate('ac_course', courses.map(c => ({
-                value: c.id,
-                label: `${c.code} — ${c.name}`,
-                sub: `${c.credits} credits`
-            })));
+                SearchSelect.populate('ac_teacher', teachers.map(t => ({
+                    value: t.id,
+                    label: `${t.first_name} ${t.last_name}`,
+                    sub: t.department || 'No Dept'
+                })));
+                SearchSelect.populate('ac_course', courses.map(c => ({
+                    value: c.id,
+                    label: `${c.code} — ${c.name}`,
+                    sub: `${c.credits} credits`
+                })));
 
-            const sectionSelect = document.getElementById('ac_section');
-            sectionSelect.innerHTML = '<option value="">All Sections</option>' +
-                sections.map(s => `<option value="${esc(s.id)}">${esc(s.branch_code)}-${esc(s.name)} (${esc(s.year)})</option>`).join('');
+                const sectionSelect = document.getElementById('ac_section');
+                sectionSelect.innerHTML = '<option value="">All Sections</option>' +
+                    sections.map(s => `<option value="${esc(s.id)}">${esc(s.branch_code)}-${esc(s.name)} (${esc(s.year)})</option>`).join('');
 
-            document.getElementById('ac_year').value = new Date().getFullYear();
-            document.getElementById('ac_semester').value = 3;
+                document.getElementById('ac_year').value = new Date().getFullYear();
+                document.getElementById('ac_semester').value = 3;
 
-            SearchSelect.unlock('ac_teacher');
-            SearchSelect.unlock('ac_course');
+                SearchSelect.unlock('ac_teacher');
+                SearchSelect.unlock('ac_course');
 
-            if (opts.preTeacherId) {
-                SearchSelect.lock('ac_teacher', opts.preTeacherId, opts.teacherName);
+                if (opts.preTeacherId) {
+                    SearchSelect.lock('ac_teacher', opts.preTeacherId, opts.teacherName);
+                }
+                if (opts.preCourseId) {
+                    SearchSelect.lock('ac_course', opts.preCourseId, opts.courseName);
+                }
+
+                document.getElementById('assignCourseModal').classList.add('active');
+            } catch (err) {
+                console.error('openAssignCourseModal error:', err);
+                showAlert('alert', 'Failed to open assignment modal: ' + err.message, 'error');
             }
-            if (opts.preCourseId) {
-                SearchSelect.lock('ac_course', opts.preCourseId, opts.courseName);
-            }
-
-            document.getElementById('assignCourseModal').classList.add('active');
         }
 
         document.getElementById('assignCourseForm').addEventListener('submit', async (e) => {

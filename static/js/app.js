@@ -30,8 +30,20 @@ async function api(url, options = {}) {
     try {
         const res = await fetch(API + url, options);
         if (res.status === 401) {
-            alert('Session expired — please log in again.');
-            logout();
+            // If we're on a bulk-edit page (opened in a new tab), don't auto-redirect—
+            // just show a clear error and let the user go back to log in.
+            if (window.location.pathname.includes('bulk-edit')) {
+                showAlert('alert', 'Session expired — please close this tab, log in again, then re-open Bulk Edit.', 'error');
+                const statusEl = document.getElementById('bulk-status');
+                if (statusEl) {
+                    statusEl.textContent = '⚠️ Session expired — please log in again in the main tab and refresh.';
+                    statusEl.style.background = '#ffebee';
+                    statusEl.style.color = '#c62828';
+                }
+            } else {
+                alert('Session expired — please log in again.');
+                logout();
+            }
             return null;
         }
         if (res.status >= 500) {
@@ -54,7 +66,17 @@ function logout() {
 
 function requireAuth(role) {
     if (!getToken() || getRole() !== role) {
-        window.location.href = '/';
+        if (window.location.pathname.includes('bulk-edit')) {
+            // On bulk-edit pages opened in new tabs, show a message instead of redirecting
+            document.body.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Inter,sans-serif;flex-direction:column;gap:16px;background:#f8f9fa;">
+                    <h2 style="margin:0;color:#c62828;">⚠️ Not Authenticated</h2>
+                    <p style="color:#555;margin:0;">Please <a href="/" style="color:#1a73e8;font-weight:600;">log in</a> first, then come back to this page.</p>
+                </div>
+            `;
+        } else {
+            window.location.href = '/';
+        }
     }
 }
 
@@ -72,49 +94,55 @@ async function openModal(id, opts = {}) {
     document.getElementById(id).classList.add('active');
     if (id === 'assignModal') {
         const [tRes, oRes] = await Promise.all([api('/admin/teachers'), api('/admin/course-offerings')]);
-        if (tRes && oRes) {
-            const teachers = await tRes.json();
-            const offerings = await oRes.json();
+        if (!tRes || !oRes) {
+            showAlert('alert', 'Failed to load data — your session may have expired. Please log in again.', 'error');
+            closeModal(id);
+            return;
+        }
+        const teachers = await tRes.json();
+        const offerings = await oRes.json();
 
-            const teacherItems = teachers.map(t => ({
-                value: t.id,
-                label: `${t.first_name} ${t.last_name}`,
-                sub: `${t.department || 'No Dept'}`
-            }));
-            const offeringItems = offerings.map(o => ({
-                value: o.id,
-                label: o.label,
-                sub: `${o.credits} credits`
-            }));
+        const teacherItems = teachers.map(t => ({
+            value: t.id,
+            label: `${t.first_name} ${t.last_name}`,
+            sub: `${t.department || 'No Dept'}`
+        }));
+        const offeringItems = offerings.map(o => ({
+            value: o.id,
+            label: o.label,
+            sub: `${o.credits} credits`
+        }));
 
-            SearchSelect.populate('a_teacher', teacherItems);
-            SearchSelect.populate('a_offering', offeringItems);
-            SearchSelect.unlock('a_teacher');
-            SearchSelect.unlock('a_offering');
-            if (opts.preTeacherId) {
-                SearchSelect.lock('a_teacher', opts.preTeacherId, opts.teacherName);
-            }
-            if (opts.preOfferingId) {
-                SearchSelect.lock('a_offering', opts.preOfferingId, opts.offeringLabel);
-            }
+        SearchSelect.populate('a_teacher', teacherItems);
+        SearchSelect.populate('a_offering', offeringItems);
+        SearchSelect.unlock('a_teacher');
+        SearchSelect.unlock('a_offering');
+        if (opts.preTeacherId) {
+            SearchSelect.lock('a_teacher', opts.preTeacherId, opts.teacherName);
+        }
+        if (opts.preOfferingId) {
+            SearchSelect.lock('a_offering', opts.preOfferingId, opts.offeringLabel);
         }
     }
     if (id === 'enrollModal') {
         const [sRes, oRes] = await Promise.all([api('/admin/students'), api('/admin/course-offerings')]);
-        if (sRes && oRes) {
-            const students = await sRes.json();
-            const offerings = await oRes.json();
-            SearchSelect.populate('e_student',
-                students.map(s => ({ value: s.id, label: `${s.roll_number || s.username}`, sub: `${s.first_name} ${s.last_name}` }))
-            );
-            SearchSelect.populate('e_offering',
-                offerings.map(o => ({ value: o.id, label: o.label, sub: `${o.credits} credits` }))
-            );
-            SearchSelect.unlock('e_student');
-            SearchSelect.unlock('e_offering');
-            if (opts.preOfferingId) {
-                SearchSelect.lock('e_offering', opts.preOfferingId, opts.offeringLabel);
-            }
+        if (!sRes || !oRes) {
+            showAlert('alert', 'Failed to load data — your session may have expired. Please log in again.', 'error');
+            closeModal(id);
+            return;
+        }
+        const students = await sRes.json();
+        const offerings = await oRes.json();
+        SearchSelect.populate('e_student',
+            students.map(s => ({ value: s.id, label: `${s.roll_number || s.username}`, sub: `${s.first_name} ${s.last_name}` }))
+        );
+        SearchSelect.populate('e_offering',
+            offerings.map(o => ({ value: o.id, label: o.label, sub: `${o.credits} credits` }))
+        );
+        SearchSelect.unlock('e_student');
+        SearchSelect.unlock('e_offering');
+        if (opts.preOfferingId) {
+            SearchSelect.lock('e_offering', opts.preOfferingId, opts.offeringLabel);
         }
     }
 }
